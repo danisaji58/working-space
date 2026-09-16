@@ -65,8 +65,6 @@ export default function ReservationHistoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Rekapitulasi Aktivitas</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             Riwayat Reservasi
@@ -202,11 +200,11 @@ export default function ReservationHistoryPage() {
                       <td className="py-3.5 px-4 text-right">
                         <Link href={`/member/reservations/${targetId}/ticket`}>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             leftIcon={<Ticket className="w-3.5 h-3.5 text-[#c5a880]" />}
                           >
-                            E-Ticket
+                            E-Ticket & QR
                           </Button>
                         </Link>
                       </td>

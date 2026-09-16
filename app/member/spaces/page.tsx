@@ -55,10 +55,6 @@ export default function SpacesCatalogPage() {
     <div className="space-y-8">
       {/* Header */}
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Katalog Fasilitas</span>
-        </div>
         <h1 className="text-3xl font-bold tracking-tight text-white">
           Pilihan Coworking Space & Workstation
         </h1>
@@ -84,11 +80,10 @@ export default function SpacesCatalogPage() {
               <button
                 key={filter.key}
                 onClick={() => setSelectedType(filter.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-xs'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${isSelected
+                  ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-xs'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  }`}
               >
                 {filter.label}
               </button>

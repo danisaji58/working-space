@@ -1,16 +1,206 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { AdminSidebar } from '@/components/layout/admin-sidebar';
+import { useAuth } from '@/context/auth-context';
+import {
+  ChevronDown,
+  User,
+  Settings,
+  LogOut,
+  Eye,
+  Building2,
+  ShieldCheck,
+  Sparkles,
+  BarChart3,
+  CalendarCheck2
+} from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProfileDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsProfileDropdownOpen(false);
+  }, [pathname]);
+
+  const adminInitials = (user?.nama || 'Admin')
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
   return (
     <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col lg:flex-row">
       <AdminSidebar />
       <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+        {/* Desktop Admin Top Header */}
+        <header className="hidden lg:flex items-center justify-between h-16 px-6 lg:px-8 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Admin Console Active</span>
+            </div>
+            <span className="text-xs text-zinc-400 font-mono">
+              • {user?.nama_coworking || 'The Hive Coworking'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Link
+              href="/member"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-colors"
+            >
+              <Eye className="w-3.5 h-3.5 text-[#c5a880]" />
+              <span>Tampilan Member</span>
+            </Link>
+
+            {/* Admin Profile Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                className={`flex items-center gap-2.5 pl-2.5 pr-2 py-1.5 rounded-full border transition-all cursor-pointer ${
+                  isProfileDropdownOpen
+                    ? 'bg-zinc-800 border-[#c5a880]/50 ring-2 ring-[#c5a880]/20'
+                    : 'bg-zinc-900/90 hover:bg-zinc-800/90 border-zinc-800 hover:border-zinc-700'
+                }`}
+                aria-expanded={isProfileDropdownOpen}
+              >
+                <div className="relative w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-mono font-bold text-[#c5a880]">
+                  {user?.foto ? (
+                    <Image
+                      src={user.foto}
+                      alt={user?.nama || 'Admin'}
+                      fill
+                      sizes="28px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span>{adminInitials}</span>
+                  )}
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-zinc-950" />
+                </div>
+
+                <div className="flex flex-col text-left max-w-[130px]">
+                  <span className="text-xs font-semibold text-zinc-200 truncate leading-tight">
+                    {user?.nama || 'Administrator'}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-mono truncate leading-tight">
+                    Admin Space
+                  </span>
+                </div>
+
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                    isProfileDropdownOpen ? 'rotate-180 text-white' : ''
+                  }`}
+                />
+              </button>
+
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-zinc-950 border border-zinc-800/90 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60 mb-2 space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-xs font-bold text-[#c5a880] shrink-0">
+                        {user?.foto ? (
+                          <Image
+                            src={user.foto}
+                            alt={user?.nama || 'Admin'}
+                            fill
+                            sizes="36px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <span>{adminInitials}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-white truncate">
+                          {user?.nama || 'Administrator'}
+                        </div>
+                        <div className="text-[11px] text-[#c5a880] font-mono truncate">
+                          {user?.nama_coworking || 'The Hive Coworking'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-2 flex items-center justify-between text-[10px] font-mono border-t border-zinc-800/60 text-zinc-400">
+                      <span className="inline-flex items-center gap-1 text-emerald-400">
+                        <ShieldCheck className="w-3 h-3" />
+                        Admin Operator
+                      </span>
+                      <span>@{user?.username || 'admin'}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <Link
+                      href="/admin/profile"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
+                    >
+                      <Settings className="w-4 h-4 text-zinc-400" />
+                      <span>Profil Coworking & Pengelola</span>
+                    </Link>
+
+                    <Link
+                      href="/admin/reservations"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
+                    >
+                      <CalendarCheck2 className="w-4 h-4 text-zinc-400" />
+                      <span>Kelola Reservasi</span>
+                    </Link>
+
+                    <Link
+                      href="/admin/reports"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4 text-zinc-400" />
+                      <span>Laporan Finansial</span>
+                    </Link>
+                  </div>
+
+                  <div className="pt-1.5 mt-1.5 border-t border-zinc-800/80">
+                    <button
+                      onClick={() => {
+                        setIsProfileDropdownOpen(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Keluar Akun Admin</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
           {children}
         </main>
+
         <footer className="border-t border-zinc-900 bg-zinc-950 py-5 text-center text-xs text-zinc-400 font-mono">
           Smart Space Booking • Admin Management Console • UKK SMK Telkom FE
         </footer>

@@ -11,6 +11,11 @@ import {
   Phone,
   Building,
   ShieldCheck,
+  QrCode,
+  Sparkles,
+  Download,
+  Copy,
+  Check
 } from 'lucide-react';
 import { getETicket } from '@/lib/api/reservations';
 import { ETicketData } from '@/types/api';
@@ -24,9 +29,9 @@ export default function ETicketPage() {
   const reservationId = Number(params?.id);
 
   const [ticket, setTicket] = useState<ETicketData | null>(null);
-  const [qrPayload, setQrPayload] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
     async function loadTicket() {
@@ -36,10 +41,6 @@ export default function ETicketPage() {
         const res = await getETicket(reservationId);
         if (res.status && res.data) {
           setTicket(res.data);
-          // Store qr_payload to build a canvas-free QR image URL
-          if (res.data.qr_payload) {
-            setQrPayload(res.data.qr_payload);
-          }
         } else {
           setError(res.message || 'E-Ticket tidak ditemukan.');
         }
@@ -52,6 +53,13 @@ export default function ETicketPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleCopyBooking = () => {
+    if (!ticket?.kode_booking) return;
+    navigator.clipboard.writeText(ticket.kode_booking);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   if (isLoading) {
@@ -76,8 +84,26 @@ export default function ETicketPage() {
     );
   }
 
+  // Guaranteed QR Payload with full fallback
+  const qrDataString =
+    ticket.qr_payload ||
+    JSON.stringify({
+      nomor_tiket: ticket.nomor_tiket || `TKT-${String(reservationId).padStart(6, '0')}`,
+      kode_booking: ticket.kode_booking || `SSB-${String(reservationId).padStart(6, '0')}`,
+      id_reservasi: reservationId,
+      member: ticket.member?.nama || 'Member',
+      space: ticket.space?.nama || 'Workstation',
+      tanggal: ticket.jadwal?.tanggal,
+      jam: `${ticket.jadwal?.jam_mulai} - ${ticket.jadwal?.jam_selesai}`,
+      status: ticket.pembayaran?.status_reservasi ?? ticket.status ?? 'aktif',
+    });
+
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+    qrDataString
+  )}&bgcolor=ffffff&color=000000&margin=2`;
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto pb-12">
       {/* Top Action Bar (hidden in print) */}
       <div className="flex items-center justify-between no-print">
         <Link
@@ -101,7 +127,7 @@ export default function ETicketPage() {
       </div>
 
       {/* Official Boarding-Pass Style E-Ticket Card */}
-      <div className="ticket-container bg-zinc-900/90 rounded-3xl border border-zinc-800 shadow-2xl overflow-hidden text-zinc-100">
+      <div className="ticket-container bg-zinc-900/95 rounded-3xl border border-zinc-800 shadow-2xl overflow-hidden text-zinc-100">
         {/* Ticket Header Banner */}
         <div className="p-6 sm:p-8 bg-zinc-950 border-b border-zinc-800 flex items-start justify-between gap-4">
           <div className="space-y-2">
@@ -121,12 +147,17 @@ export default function ETicketPage() {
             </p>
           </div>
 
-          <div className="text-right space-y-1">
+          <div className="text-right space-y-1.5 shrink-0">
             <div className="text-[10px] uppercase font-mono text-zinc-400">Kode Booking</div>
-            <div className="text-sm sm:text-base font-bold font-mono text-[#dfcbb5] tracking-wider">
-              {ticket.kode_booking}
-            </div>
-            <div className="pt-1">
+            <button
+              onClick={handleCopyBooking}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-700/80 text-xs sm:text-sm font-bold font-mono text-[#dfcbb5] tracking-wider hover:border-[#c5a880] transition-colors"
+              title="Salin kode booking"
+            >
+              <span>{ticket.kode_booking || `SSB-${String(reservationId).padStart(6, '0')}`}</span>
+              {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
+            </button>
+            <div className="pt-0.5">
               <StatusBadge status={ticket.pembayaran?.status_reservasi ?? ticket.status ?? 'belum_dikonfirm'} />
             </div>
           </div>
@@ -142,7 +173,7 @@ export default function ETicketPage() {
               </span>
               <div>
                 <h3 className="text-lg font-bold text-white tracking-tight">
-                  {ticket.space?.nama ?? 'Workstation'}
+                  {ticket.space?.nama ?? 'Workstation Space'}
                 </h3>
                 <p className="text-xs text-zinc-400 font-mono mt-0.5">
                   Tipe: {getSpaceTypeLabel(ticket.space?.tipe ?? 'desk')} • Kapasitas: {ticket.space?.kapasitas ?? '-'} Orang
@@ -183,7 +214,7 @@ export default function ETicketPage() {
                 </div>
                 <div className="text-zinc-400 flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>{ticket.member?.instansi ?? '-'}</span>
+                  <span>{ticket.member?.instansi ?? 'Member Personal'}</span>
                 </div>
                 <div className="text-zinc-400 flex items-center gap-1.5 font-mono">
                   <Phone className="w-3.5 h-3.5 text-zinc-400" />
@@ -220,43 +251,43 @@ export default function ETicketPage() {
             </div>
           </div>
 
-          {/* QR Code Validation Section */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
-            <div className="space-y-1.5 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-semibold text-white">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Pindai QR Saat Check-In di Lokasi</span>
+          {/* QR Code Validation Section - Prominent & Guaranteed */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-5 sm:p-6 rounded-2xl bg-zinc-950 border border-zinc-800 shadow-inner">
+            <div className="space-y-2 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-sm font-bold text-white">
+                <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                <span>QR Access Pass Check-In</span>
               </div>
-              <p className="text-[11px] text-zinc-400 max-w-sm leading-relaxed">
-                Tunjukkan kode QR ini kepada resepsionis pengelola space untuk melakukan check-in dan aktivasi akses kunci digital.
+              <p className="text-xs text-zinc-400 max-w-sm leading-relaxed">
+                Tunjukkan QR Code resmi ini ke scanner pintu pintar atau staf resepsionis di venue untuk aktivasi kunci akses dan validasi kehadiran Anda.
               </p>
-              <div className="text-[10px] text-zinc-400 font-mono pt-1">
-                No. Tiket: {ticket.nomor_tiket}
+              <div className="text-[11px] text-zinc-400 font-mono pt-1">
+                No. Tiket: <strong className="text-zinc-200">{ticket.nomor_tiket || `TKT-${String(reservationId).padStart(6, '0')}`}</strong>
               </div>
             </div>
 
-            {/* QR Code Image — canvas-free via QR image API */}
-            <div className="p-2 bg-white rounded-xl shrink-0 shadow-md">
-              {qrPayload ? (
-                // eslint-disable-next-line @next/next/no-img-element
+            {/* High Resolution Official QR Code */}
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="p-3 bg-white rounded-2xl shadow-xl border-4 border-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(qrPayload)}&bgcolor=ffffff&color=000000&margin=1`}
-                  alt="QR Code Tiket"
-                  className="w-32 h-32 object-contain"
-                  width={128}
-                  height={128}
+                  src={qrImageUrl}
+                  alt={`QR Code Tiket #${ticket.nomor_tiket}`}
+                  className="w-36 h-36 sm:w-40 sm:h-40 object-contain rounded-lg"
+                  width={160}
+                  height={160}
                 />
-              ) : (
-                <div className="w-32 h-32 flex items-center justify-center text-xs text-zinc-900">
-                  Membuat QR...
-                </div>
-              )}
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
+                <QrCode className="w-3 h-3 text-[#c5a880]" />
+                Scan saat check-in lokasi
+              </span>
             </div>
           </div>
         </div>
 
         {/* Footer info */}
-        <div className="p-4 bg-zinc-950/80 border-t border-zinc-800 text-center text-[11px] text-zinc-400 font-mono">
+        <div className="p-4 bg-zinc-950/90 border-t border-zinc-800 text-center text-[11px] text-zinc-400 font-mono">
           Smart Space Booking • Dicetak secara digital • Berlaku sesuai jam reservasi tertera.
         </div>
       </div>

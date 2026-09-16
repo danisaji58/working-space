@@ -18,10 +18,12 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { MemberNav } from '@/components/layout/member-nav';
 import { getSpaces } from '@/lib/api/spaces';
+import { useAuth } from '@/context/auth-context';
 import { Space } from '@/types/api';
 import { formatIDR, getSpaceTypeLabel, resolveSpaceImage } from '@/lib/utils';
 
 export default function LandingPage() {
+  const { user, isAuthenticated } = useAuth();
   const [spaces, setSpaces] = useState<Space[]>([]);
 
   useEffect(() => {
@@ -43,7 +45,12 @@ export default function LandingPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl space-y-6">
-           
+            {isAuthenticated && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#c5a880]/15 text-[#dfcbb5] border border-[#c5a880]/30 text-xs font-mono">
+                <Sparkles className="w-3.5 h-3.5 text-[#c5a880]" />
+                <span>Selamat datang kembali, <strong>{user?.nama || 'Member'}</strong></span>
+              </div>
+            )}
 
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.08]">
               Ruang Kerja Presisi. <br />
@@ -55,16 +62,33 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Link href="/member/spaces">
-                <Button size="lg" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                  Reservasi Ruang Sekarang
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline">
-                  Masuk Akun
-                </Button>
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link href="/member">
+                    <Button size="lg" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                      Buka Dashboard Member
+                    </Button>
+                  </Link>
+                  <Link href="/member/spaces">
+                    <Button size="lg" variant="outline" rightIcon={<Compass className="w-4 h-4" />}>
+                      Jelajah Ruang
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/member/spaces">
+                    <Button size="lg" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                      Reservasi Ruang Sekarang
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button size="lg" variant="outline">
+                      Masuk Akun
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Quick Metrics */}
