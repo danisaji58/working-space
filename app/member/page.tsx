@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { MemberNav } from '@/components/layout/member-nav';
 import { getSpaces } from '@/lib/api/spaces';
 import { Space } from '@/types/api';
 import { formatIDR, getSpaceTypeLabel, resolveSpaceImage } from '@/lib/utils';
@@ -34,7 +33,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col selection:bg-[#c5a880]/30 selection:text-[#dfcbb5]">
-      <MemberNav />
+      {/* <MemberNav /> */}
 
       {/* Hero Section */}
       <section className="relative pt-16 pb-24 md:pt-28 md:pb-36 overflow-hidden border-b border-zinc-900">
@@ -43,7 +42,6 @@ export default function LandingPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl space-y-6">
-           
 
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.08]">
               Ruang Kerja Presisi. <br />
