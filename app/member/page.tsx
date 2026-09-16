@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -9,580 +9,475 @@ import {
   Clock,
   Compass,
   ArrowRight,
-  Wifi,
-  Coffee,
-  Shield,
-  Layers,
-  ChevronRight,
-  Users,
   Ticket,
+  Users,
   CheckCircle2,
-  Tag,
-  Copy,
-  Check,
-  Building2,
   Calendar,
-  AlertCircle
+  Layers,
+  ShieldCheck,
+  ChevronRight,
+  Plus,
+  Building,
+  User,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { getMyReservations, getMyHistory } from '@/lib/api/reservations';
 import { getSpaces } from '@/lib/api/spaces';
-import { getMyReservations } from '@/lib/api/reservations';
-import { Space, Reservation } from '@/types/api';
-import { formatIDR, formatDate, calculateEndTime, getSpaceTypeLabel, resolveSpaceImage } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Reservation, Space } from '@/types/api';
+import {
+  formatIDR,
+  formatDate,
+  calculateEndTime,
+  getSpaceTypeLabel,
+  resolveSpaceImage,
+} from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { LoadingSkeleton } from '@/components/ui/EmptyState';
 
 export default function MemberDashboardPage() {
   const { user, isAuthenticated } = useAuth();
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [isLoadingSpaces, setIsLoadingSpaces] = useState<boolean>(true);
-  const [isLoadingReservations, setIsLoadingReservations] = useState<boolean>(true);
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [copiedPromo, setCopiedPromo] = useState(false);
+  const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
+  const [recommendedSpaces, setRecommendedSpaces] = useState<Space[]>([]);
+  const [historyTotal, setHistoryTotal] = useState<number>(0);
+  const [totalHoursUsed, setTotalHoursUsed] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Time-aware greeting
-  const greeting = useMemo(() => {
+  // Time-based greeting helper
+  const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 11) return 'Selamat Pagi';
     if (hour < 15) return 'Selamat Siang';
     if (hour < 18) return 'Selamat Sore';
     return 'Selamat Malam';
-  }, []);
-
-  const todayFormatted = useMemo(() => {
-    return new Intl.DateTimeFormat('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date());
-  }, []);
-
-  useEffect(() => {
-    async function loadData() {
-      setIsLoadingSpaces(true);
-      try {
-        const res = await getSpaces();
-        if (res.status && Array.isArray(res.data)) {
-          setSpaces(res.data);
-        }
-      } finally {
-        setIsLoadingSpaces(false);
-      }
-    }
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    async function loadReservations() {
-      if (!isAuthenticated) {
-        setIsLoadingReservations(false);
-        return;
-      }
-      setIsLoadingReservations(true);
-      try {
-        const res = await getMyReservations();
-        if (res.status && Array.isArray(res.data)) {
-          setReservations(res.data);
-        }
-      } finally {
-        setIsLoadingReservations(false);
-      }
-    }
-    loadReservations();
-  }, [isAuthenticated]);
-
-  // Find nearest upcoming/active reservation
-  const activeReservation = useMemo(() => {
-    if (!reservations || reservations.length === 0) return null;
-    // prioritize disetujui or aktif, then belum_dikonfirm
-    const active = reservations.find((r) => r.status === 'disetujui' || r.status === 'aktif');
-    if (active) return active;
-    return reservations.find((r) => r.status === 'belum_dikonfirm') || null;
-  }, [reservations]);
-
-  const activeCount = useMemo(() => {
-    return reservations.filter(
-      (r) => r.status === 'belum_dikonfirm' || r.status === 'disetujui' || r.status === 'aktif'
-    ).length;
-  }, [reservations]);
-
-  const filteredSpaces = useMemo(() => {
-    if (selectedType === 'all') return spaces.slice(0, 6);
-    return spaces.filter((s) => s.tipe === selectedType).slice(0, 6);
-  }, [spaces, selectedType]);
-
-  const handleCopyPromo = () => {
-    navigator.clipboard.writeText('DISKONHEMAT20');
-    setCopiedPromo(true);
-    setTimeout(() => setCopiedPromo(false), 2000);
   };
 
+  const todayFormatted = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      setIsLoading(true);
+      try {
+        const [resActive, resHistory, resSpaces] = await Promise.all([
+          getMyReservations(),
+          getMyHistory(),
+          getSpaces(),
+        ]);
+
+        if (resActive.status && Array.isArray(resActive.data)) {
+          setActiveReservations(resActive.data);
+        }
+
+        if (resHistory.status && resHistory.data) {
+          const items = resHistory.data.items || [];
+          setHistoryTotal(items.length);
+          const hours = items.reduce(
+            (sum, item) => sum + (Number(item.durasi_jam) || 0),
+            0
+          );
+          setTotalHoursUsed(hours);
+        }
+
+        if (resSpaces.status && Array.isArray(resSpaces.data)) {
+          setRecommendedSpaces(resSpaces.data.slice(0, 3));
+        }
+      } catch (err) {
+        console.error('Error loading dashboard data', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDashboardData();
+  }, []);
+
+  const latestActive = activeReservations.length > 0 ? activeReservations[0] : null;
+
   return (
-    <div className="space-y-10 pb-12">
+    <div className="space-y-8">
       {/* Personalized Welcome Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-zinc-900 via-zinc-900/90 to-zinc-950 border border-zinc-800/90 p-6 sm:p-8 md:p-10 shadow-xl">
-        <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/4 w-96 h-96 bg-[radial-gradient(circle,rgba(197,168,128,0.12),transparent_70%)] pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-zinc-400 font-mono flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-zinc-400" />
-                {todayFormatted}
-              </span>
-            </div>
-
-            <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
-                {greeting},{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#dfcbb5] via-white to-zinc-200">
-                  {user?.nama || 'Member'}
-                </span>
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-1.5 leading-relaxed font-normal">
-                Selamat datang di platform workspace Smart Space. Kelola sesi reservasi, akses e-ticket digital, atau reservasi workstation favorit Anda.
-              </p>
-            </div>
-
-            {user?.instansi && (
-              <div className="inline-flex items-center gap-2 text-xs text-zinc-400 font-mono pt-1">
-                <Building2 className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Instansi: <span className="text-zinc-200 font-medium">{user.instansi}</span></span>
-              </div>
-            )}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-900">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Dashboard Anggota</span>
+            <span>•</span>
+            <span className="text-zinc-400 font-normal">{todayFormatted}</span>
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
-            <Link href="/member/spaces" className="w-full sm:w-auto">
-              <Button size="md" variant="primary" className="w-full" rightIcon={<Compass className="w-4 h-4" />}>
-                Pesan Ruang Baru
-              </Button>
-            </Link>
-            <Link href="/member/reservations" className="w-full sm:w-auto">
-              <Button size="md" variant="outline" className="w-full" rightIcon={<Ticket className="w-4 h-4" />}>
-                Tiket Saya ({activeCount})
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            {getGreeting()},{' '}
+            <span className="text-[#dfcbb5]">{user?.nama || 'Member'}</span> 👋
+          </h1>
 
-      {/* Quick Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 */}
-        <div className="card-luxury p-5 rounded-2xl flex items-center justify-between group hover:border-[#c5a880]/40 transition-all">
-          <div className="space-y-1">
-            <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">
-              Reservasi Aktif
-            </span>
-            <div className="text-2xl font-bold text-white font-mono flex items-center gap-2">
-              {isLoadingReservations ? '-' : activeCount}
-              {activeCount > 0 && (
-                <span className="inline-block w-2 h-2 rounded-full  animate-pulse" />
-              )}
-            </div>
-            <Link
-              href="/member/reservations"
-              className="inline-flex items-center gap-1 text-[11px] text-[#c5a880] hover:underline font-mono"
-            >
-              Lihat Tiket <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[#c5a880] group-hover:scale-110 transition-transform">
-            <CalendarCheck className="w-5 h-5" />
-          </div>
+          <p className="text-xs sm:text-sm text-zinc-400">
+            Kelola jadwal workstation, tiket QR digital, dan reservasi ruang kerja Anda di satu tempat.
+          </p>
         </div>
 
-        {/* Metric 2 */}
-        <div className="card-luxury p-5 rounded-2xl flex items-center justify-between group hover:border-[#c5a880]/40 transition-all">
-          <div className="space-y-1">
-            <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">
-              Total Riwayat
-            </span>
-            <div className="text-2xl font-bold text-white font-mono">
-              {isLoadingReservations ? '-' : reservations.length} Sesi
-            </div>
-            <Link
-              href="/member/history"
-              className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white font-mono"
-            >
-              Buka Riwayat <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 group-hover:scale-110 transition-transform">
-            <Clock className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Metric 3: Active Promo Voucher */}
-        <div className="card-luxury p-5 rounded-2xl flex items-center justify-between group hover:border-[#c5a880]/40 transition-all">
-          <div className="space-y-1">
-            <span className="text-[11px] font-mono text-[#c5a880] uppercase tracking-wider flex items-center gap-1">
-              <Tag className="w-3 h-3" /> Voucher Promo 20%
-            </span>
-            <div className="text-sm font-bold text-white font-mono">
-              DISKONHEMAT20
-            </div>
-            <button
-              onClick={handleCopyPromo}
-              className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-[#dfcbb5] font-mono"
-            >
-              {copiedPromo ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span className="text-emerald-400">Tersalin</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  <span>Salin Kode</span>
-                </>
-              )}
-            </button>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[#c5a880] group-hover:scale-110 transition-transform">
-            <Tag className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Metric 4: Member Status */}
-        <div className="card-luxury p-5 rounded-2xl flex items-center justify-between group hover:border-[#c5a880]/40 transition-all">
-          <div className="space-y-1">
-            <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">
-              Status Keanggotaan
-            </span>
-            <div className="text-sm font-bold text-emerald-400 font-mono flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              Verified Member
-            </div>
-            <Link
-              href="/member/profile"
-              className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white font-mono"
-            >
-              Edit Profil <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-            <Shield className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* Active Session Spotlight Banner */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Ticket className="w-4 h-4 text-[#c5a880]" />
-            <h2 className="text-lg font-bold text-white tracking-tight">
-              Sesi & Tiket Kerja Aktif
-            </h2>
-          </div>
-          <Link
-            href="/member/reservations"
-            className="text-xs text-zinc-400 hover:text-white transition-colors inline-flex items-center gap-1 font-mono"
-          >
-            Lihat Semua Tiket <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {isLoadingReservations ? (
-          <LoadingSkeleton rows={2} />
-        ) : activeReservation ? (
-          <div className="card-luxury rounded-3xl p-6 sm:p-7 border border-zinc-800 relative overflow-hidden bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-[#c5a880]/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
-              {/* Left Details */}
-              <div className="lg:col-span-8 space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={activeReservation.status} />
-                  <Badge variant="outline" size="sm">
-                    {getSpaceTypeLabel(activeReservation.space?.tipe || 'desk')}
-                  </Badge>
-                  <span className="text-xs font-mono text-zinc-400">
-                    ID #{activeReservation.id_reservasi ?? activeReservation.id}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                    {activeReservation.space?.nama_space || 'Workstation Space'}
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    {activeReservation.space?.deskripsi || 'Sesi kerja terdaftar di fasilitas Smart Space.'}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 border-t border-zinc-800/80">
-                  <div>
-                    <span className="text-[10px] text-zinc-400 uppercase font-mono block">Tanggal Sesi</span>
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-200">
-                      {formatDate(activeReservation.tanggal_reservasi)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-zinc-400 uppercase font-mono block">Waktu Kerja</span>
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-200 font-mono">
-                      {activeReservation.jam_mulai} - {calculateEndTime(activeReservation.jam_mulai, activeReservation.durasi_jam)}
-                    </span>
-                    <span className="text-[10px] text-zinc-400 block font-mono">
-                      ({activeReservation.durasi_jam} Jam)
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-zinc-400 uppercase font-mono block">Total Biaya</span>
-                    <span className="text-xs sm:text-sm font-bold text-[#dfcbb5] font-mono">
-                      {formatIDR(activeReservation.total_bayar ?? activeReservation.total_harga ?? 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right CTA Action with Live QR */}
-              <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col justify-center items-center lg:items-end gap-4 pt-4 lg:pt-0 lg:border-l lg:border-zinc-800/80 lg:pl-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white rounded-xl shadow-lg border-2 border-white shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(
-                        JSON.stringify({
-                          id_reservasi: activeReservation.id_reservasi ?? activeReservation.id,
-                          kode_booking: `SSB-${String(activeReservation.id_reservasi ?? activeReservation.id).padStart(6, '0')}`,
-                          space: activeReservation.space?.nama_space,
-                          tanggal: activeReservation.tanggal_reservasi,
-                          jam: activeReservation.jam_mulai,
-                          status: activeReservation.status,
-                        })
-                      )}&bgcolor=ffffff&color=000000&margin=0`}
-                      alt="QR Access Pass"
-                      width={80}
-                      height={80}
-                      className="w-20 h-20 object-contain rounded"
-                    />
-                  </div>
-                  <div className="text-left space-y-1">
-                    <span className="text-[10px] font-mono text-[#c5a880] uppercase block">
-                      QR Pass Siap
-                    </span>
-                    <span className="text-xs font-semibold text-white block">
-                      Akses Gate 24/7
-                    </span>
-                    <span className="text-[10px] text-zinc-400 block">
-                      Scan di scanner venue
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full space-y-1.5">
-                  <Link href={`/member/reservations/${activeReservation.id_reservasi ?? activeReservation.id}/ticket`} className="w-full block">
-                    <Button size="sm" variant="primary" className="w-full" rightIcon={<Ticket className="w-4 h-4" />}>
-                      Buka E-Ticket Lengkap
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="card-luxury rounded-3xl p-6 sm:p-8 text-center space-y-4 border border-zinc-800/80">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
-              <CalendarCheck className="w-6 h-6" />
-            </div>
-            <div className="max-w-md mx-auto space-y-1">
-              <h3 className="text-base font-semibold text-white">
-                Belum Ada Reservasi Aktif
-              </h3>
-              <p className="text-xs text-zinc-400">
-                Anda belum memiliki pemesanan aktif hari ini. Reservasi meja kerja atau meeting room untuk produktivitas Anda berikutnya.
-              </p>
-            </div>
-            <Link href="/member/spaces">
-              <Button size="sm" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Jelajahi & Reservasi Ruang
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* Curated Workspaces & Quick Booking Catalog */}
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-xs font-mono text-[#c5a880] uppercase tracking-widest flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5" />
-              Pilihan Fasilitas Workspace
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Koleksi Ruang Kerja Terkurasi
-            </h2>
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { key: 'all', label: 'Semua Ruang' },
-              { key: 'desk', label: 'Personal Desk' },
-              { key: 'meeting_room', label: 'Meeting Room' },
-              { key: 'private_office', label: 'Private Office' },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setSelectedType(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedType === f.key
-                  ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-sm'
-                  : 'bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 border border-zinc-800'
-                  }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {isLoadingSpaces ? (
-          <LoadingSkeleton rows={3} />
-        ) : filteredSpaces.length === 0 ? (
-          <div className="p-8 text-center text-zinc-400 text-xs card-luxury rounded-2xl">
-            Tidak ada ruang pada kategori ini.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredSpaces.map((space) => {
-              const spaceId = space.id_space ?? space.id ?? 1;
-              return (
-                <div
-                  key={spaceId}
-                  className="card-luxury rounded-2xl overflow-hidden group flex flex-col justify-between border border-zinc-800 hover:border-zinc-700 transition-all"
-                >
-                  <div>
-                    {/* Image preview */}
-                    <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900">
-                      <Image
-                        src={resolveSpaceImage(space)}
-                        alt={space.nama_space}
-                        fill
-                        unoptimized
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
-                      />
-                      <div className="absolute top-3 left-3">
-                        <Badge variant="accent" size="sm">
-                          {getSpaceTypeLabel(space.tipe)}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="p-5 space-y-3">
-                      <h3 className="text-base font-semibold text-white tracking-tight group-hover:text-[#dfcbb5] transition-colors line-clamp-1">
-                        {space.nama_space}
-                      </h3>
-
-                      <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                        {space.deskripsi}
-                      </p>
-
-                      <div className="flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-800/60 font-mono">
-                        <div className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-zinc-400" />
-                          <span>Kapasitas {space.kapasitas} Orang</span>
-                        </div>
-                        <span className="text-[11px] text-zinc-400">
-                          AC & Power Outlet
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 pt-0 flex items-center justify-between border-t border-zinc-800/40 mt-2">
-                    <div>
-                      <span className="text-[10px] text-zinc-400 block font-mono">Tarif Sewa</span>
-                      <span className="text-sm font-bold text-white font-mono">
-                        {formatIDR(space.harga_per_jam)}
-                      </span>
-                      <span className="text-[10px] text-zinc-400">/jam</span>
-                    </div>
-
-                    <Link href={`/member/spaces/${spaceId}`}>
-                      <Button size="sm" variant="primary" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                        Pesan Ruang
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="text-center pt-2">
+        <div className="flex items-center gap-3">
           <Link href="/member/spaces">
-            <Button size="md" variant="outline" rightIcon={<Compass className="w-4 h-4" />}>
-              Lihat Seluruh Katalog Ruang ({spaces.length} Ruangan)
+            <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
+              Pesan Ruang Baru
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Member Exclusive Amenities & Facilities Guide */}
-      <div className="card-luxury rounded-3xl p-6 sm:p-8 border border-zinc-800 space-y-6 bg-zinc-950/60">
-        <div className="max-w-xl space-y-1">
-          <div className="text-xs font-mono text-[#c5a880] uppercase tracking-widest">
-            Fasilitas Inklusif Member
+      {/* Quick Overview Metrics Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Active Bookings */}
+        <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
+              Reservasi Aktif
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-[#c5a880]/10 flex items-center justify-center text-[#c5a880]">
+              <CalendarCheck className="w-4 h-4" />
+            </div>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Standar Kenyamanan di Lokasi
-          </h2>
-          <p className="text-xs text-zinc-400">
-            Setiap reservasi ruang di Smart Space otomatis mendapatkan hak akses fasilitas pendukung berikut:
-          </p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white font-mono">
+              {activeReservations.length}
+            </span>
+            <span className="text-xs text-zinc-400">sesi</span>
+          </div>
+          <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono">
+            <span className={`w-2 h-2 rounded-full ${activeReservations.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+            <span>{activeReservations.length > 0 ? 'Siap digunakan' : 'Tidak ada jadwal hari ini'}</span>
+          </div>
         </div>
 
+        {/* Metric 2: Completed Bookings */}
+        <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
+              Sesi Selesai
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-300">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white font-mono">
+              {historyTotal}
+            </span>
+            <span className="text-xs text-zinc-400">kali sewa</span>
+          </div>
+          <div className="text-[11px] text-zinc-400 font-mono">
+            Tercatat di riwayat akun
+          </div>
+        </div>
+
+        {/* Metric 3: Hours Logged */}
+        <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
+              Jam Produktif
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-300">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white font-mono">
+              {totalHoursUsed}
+            </span>
+            <span className="text-xs text-zinc-400">jam total</span>
+          </div>
+          <div className="text-[11px] text-zinc-400 font-mono">
+            Workstation & meeting
+          </div>
+        </div>
+
+        {/* Metric 4: Account Tier */}
+        <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
+              Status Member
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-base font-bold text-white">
+              Terverifikasi
+            </span>
+          </div>
+          <div className="text-[11px] text-zinc-400 truncate font-mono">
+            {user?.instansi || 'SMK Telkom Malang'}
+          </div>
+        </div>
+      </div>
+
+      {/* Active Reservation Spotlight Card */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-[#c5a880]" />
+            <span>Jadwal Reservasi Mendatang</span>
+          </h2>
+          {activeReservations.length > 1 && (
+            <Link
+              href="/member/reservations"
+              className="text-xs font-mono text-[#c5a880] hover:text-white transition-colors"
+            >
+              Lihat Semua ({activeReservations.length}) ➔
+            </Link>
+          )}
+        </div>
+
+        {isLoading ? (
+          <LoadingSkeleton rows={2} />
+        ) : latestActive ? (
+          <div className="card-luxury p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-zinc-800/90">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 w-full md:w-auto">
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-zinc-900 shrink-0 border border-zinc-800">
+                <Image
+                  src={resolveSpaceImage(latestActive.space || { foto: latestActive.foto_space })}
+                  alt={latestActive.nama_space || 'Workstation'}
+                  fill
+                  unoptimized
+                  sizes="112px"
+                  className="object-cover"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={latestActive.status} />
+                  <span className="text-xs text-zinc-400 font-mono">
+                    Kode: SSB-{String(latestActive.id_reservasi ?? latestActive.id ?? 1).padStart(6, '0')}
+                  </span>
+                  {latestActive.tipe_space && (
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      • {getSpaceTypeLabel(latestActive.tipe_space)}
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-lg font-semibold text-white tracking-tight">
+                  {latestActive.nama_space || 'Personal Workstation'}
+                </h3>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 font-mono">
+                  <span className="text-[#dfcbb5]">
+                    {formatDate(latestActive.tanggal_reservasi)}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    {latestActive.jam_mulai} -{' '}
+                    {calculateEndTime(latestActive.jam_mulai, latestActive.durasi_jam)} WIB (
+                    {latestActive.durasi_jam} Jam)
+                  </span>
+                  <span>•</span>
+                  <span className="text-white font-semibold">
+                    {formatIDR(latestActive.total_harga || latestActive.total_bayar || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 border-zinc-800">
+              <Link
+                href={`/member/reservations/${latestActive.id_reservasi ?? latestActive.id}/ticket`}
+                className="w-full sm:w-auto"
+              >
+                <Button
+                  variant="primary"
+                  size="md"
+                  leftIcon={<Ticket className="w-4 h-4" />}
+                  className="w-full"
+                >
+                  Buka E-Ticket & QR
+                </Button>
+              </Link>
+              <Link href="/member/reservations" className="w-full sm:w-auto">
+                <Button variant="outline" size="md" className="w-full">
+                  Semua Jadwal
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 text-center space-y-4">
+            <div className="w-12 h-12 rounded-xl bg-zinc-800/60 border border-zinc-700/60 flex items-center justify-center mx-auto text-[#c5a880]">
+              <CalendarCheck className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
+              <h3 className="text-base font-semibold text-white">
+                Belum Ada Jadwal Reservasi Aktif
+              </h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Workstation ergonomis, ruang rapat 4K, dan artisan brew bar siap menyambut sesi kerja fokus Anda hari ini.
+              </p>
+            </div>
+            <div>
+              <Link href="/member/spaces">
+                <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  Cari Meja & Ruang Sekarang
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Action Navigation Grid */}
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
+          <Layers className="w-4 h-4 text-[#c5a880]" />
+          <span>Akses Cepat Layanan</span>
+        </h2>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/70 space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-[#c5a880]">
-              <Wifi className="w-4 h-4" />
+          <Link
+            href="/member/spaces"
+            className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 transition-all group space-y-2"
+          >
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-[#c5a880] group-hover:scale-105 transition-transform">
+              <Compass className="w-5 h-5" />
             </div>
-            <h3 className="text-xs font-semibold text-white">WiFi 1 Gbps Fiber</h3>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Koneksi simetris super cepat dengan backup multi-gateway untuk aktivitas tanpa jeda.
+            <h3 className="text-sm font-semibold text-white group-hover:text-[#dfcbb5] transition-colors flex items-center justify-between">
+              <span>Jelajah Ruang</span>
+              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+            </h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Cari workstation, ruang rapat, dan kantor privat sesuai kapasitas.
             </p>
-          </div>
+          </Link>
 
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/70 space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-[#c5a880]">
-              <Coffee className="w-4 h-4" />
+          <Link
+            href="/member/reservations"
+            className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 transition-all group space-y-2"
+          >
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-[#c5a880] group-hover:scale-105 transition-transform">
+              <Ticket className="w-5 h-5" />
             </div>
-            <h3 className="text-xs font-semibold text-white">Artisan Brew Coffee</h3>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Kopi arabika single origin dan artisan tea gratis sepuasnya di barista bar lantai 1.
+            <h3 className="text-sm font-semibold text-white group-hover:text-[#dfcbb5] transition-colors flex items-center justify-between">
+              <span>Tiket & QR Code</span>
+              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+            </h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Akses E-Ticket digital untuk check-in instan saat tiba di lokasi.
             </p>
-          </div>
+          </Link>
 
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/70 space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-[#c5a880]">
-              <Ticket className="w-4 h-4" />
+          <Link
+            href="/member/history"
+            className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 transition-all group space-y-2"
+          >
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-[#c5a880] group-hover:scale-105 transition-transform">
+              <Clock className="w-5 h-5" />
             </div>
-            <h3 className="text-xs font-semibold text-white">Instant QR Access</h3>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Check-in mandiri langsung via scanner pintu menggunakan E-Ticket pada smartphone Anda.
+            <h3 className="text-sm font-semibold text-white group-hover:text-[#dfcbb5] transition-colors flex items-center justify-between">
+              <span>Riwayat Pemesanan</span>
+              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+            </h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Rekap seluruh sesi kerja lampau dan total pengeluaran Anda.
             </p>
-          </div>
+          </Link>
 
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/70 space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-[#c5a880]">
-              <Shield className="w-4 h-4" />
+          <Link
+            href="/member/profile"
+            className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 transition-all group space-y-2"
+          >
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-[#c5a880] group-hover:scale-105 transition-transform">
+              <User className="w-5 h-5" />
             </div>
-            <h3 className="text-xs font-semibold text-white">Loker & Keamanan 24/7</h3>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Penyimpanan barang pribadi aman dengan sistem PIN dan pengawasan CCTV berkala.
+            <h3 className="text-sm font-semibold text-white group-hover:text-[#dfcbb5] transition-colors flex items-center justify-between">
+              <span>Profil Pengguna</span>
+              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+            </h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Kelola data nama, instansi, nomor telepon, dan preferensi akun.
+            </p>
+          </Link>
+        </div>
+      </div>
+
+      {/* Recommended Spaces Carousel/Grid */}
+      <div className="space-y-4 pt-4 border-t border-zinc-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-white tracking-tight">
+              Rekomendasi Ruang Kerja Populer
+            </h2>
+            <p className="text-xs text-zinc-400">
+              Pilihan ruang favorit yang sering dipesan oleh para profesional.
             </p>
           </div>
+          <Link
+            href="/member/spaces"
+            className="text-xs font-mono text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
+          >
+            <span>Katalog Lengkap</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {recommendedSpaces.map((space) => {
+            const spaceId = space.id_space ?? space.id ?? 1;
+            return (
+              <div
+                key={spaceId}
+                className="card-luxury rounded-2xl overflow-hidden flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="relative aspect-[16/10] bg-zinc-900 overflow-hidden">
+                    <Image
+                      src={resolveSpaceImage(space)}
+                      alt={space.nama_space}
+                      fill
+                      unoptimized
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                    />
+                    <div className="absolute top-3 left-3">
+                      <Badge variant="accent" size="sm">
+                        {getSpaceTypeLabel(space.tipe)}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-2">
+                    <h3 className="text-sm font-semibold text-white tracking-tight group-hover:text-[#dfcbb5] transition-colors line-clamp-1">
+                      {space.nama_space}
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono">
+                      <Users className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Kapasitas {space.kapasitas} Orang</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 pt-0 flex items-center justify-between border-t border-zinc-800/50 mt-2">
+                  <div>
+                    <span className="text-xs font-bold text-white font-mono">
+                      {formatIDR(space.harga_per_jam)}
+                    </span>
+                    <span className="text-[10px] text-zinc-400">/jam</span>
+                  </div>
+
+                  <Link href={`/member/spaces/${spaceId}`}>
+                    <Button variant="outline" size="sm">
+                      Pesan
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
