@@ -335,7 +335,6 @@ export default function AdminSpacesPage() {
                       </td>
                       <td className="px-4 py-3.5 font-sans">
                         <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           <span>Aktif</span>
                         </span>
                       </td>

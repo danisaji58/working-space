@@ -70,17 +70,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Official API Information Pill */}
-        <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 space-y-1.5 text-xs text-zinc-400">
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Autentikasi Akun Resmi</span>
-          </div>
-          <p className="text-[11px] leading-relaxed">
-            Gunakan username & password yang telah terdaftar pada API Coworking. Belum memiliki akun? Silakan daftar melalui menu di bawah.
-          </p>
-        </div>
-
         {/* Form Card */}
         <div className="card-luxury p-6 sm:p-8 rounded-2xl">
           <form onSubmit={handleSubmit} className="space-y-4">

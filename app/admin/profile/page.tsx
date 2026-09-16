@@ -103,10 +103,6 @@ export default function AdminProfilePage() {
                   <BadgeCheck className="w-3.5 h-3.5" />
                   Verified Coworking Venue
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[11px] font-mono">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Operasional 24/7
-                </span>
               </div>
 
               {/* <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
@@ -246,7 +242,7 @@ export default function AdminProfilePage() {
                 </div>
                 <div className="text-[10px] text-zinc-400 text-right">
                   <div>Hotline: {formData.telp || '-'}</div>
-                  <div className="text-emerald-400">● Valid Check-in</div>
+                  <div className="text-emerald-400">Valid Check-in</div>
                 </div>
               </div>
 

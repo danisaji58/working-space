@@ -55,20 +55,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Desktop Admin Top Header */}
         <header className="hidden lg:flex items-center justify-between h-16 px-6 lg:px-8 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Admin Console Active</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <Link
-              href="/member"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-colors"
-            >
-              <Eye className="w-3.5 h-3.5 text-[#c5a880]" />
-              <span>Tampilan Member</span>
-            </Link>
 
             {/* Admin Profile Dropdown */}
             <div className="relative" ref={dropdownRef}>
