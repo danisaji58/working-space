@@ -11,11 +11,12 @@ export function PublicNav() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const publicLinks = [
-    { href: '#katalog', label: 'Pilihan Ruang' },
-    { href: '#fasilitas', label: 'Standar Fasilitas' },
-    { href: '#cara-pesan', label: 'Cara Reservasi' },
-    { href: '#promo', label: 'Promo Spesial' },
-    { href: '#faq', label: 'FAQ' },
+    { href: '/', label: 'Beranda' },
+    { href: '/#katalog', label: 'Pilihan Ruang' },
+    { href: '/#fasilitas', label: 'Standar Fasilitas' },
+    { href: '/#cara-pesan', label: 'Cara Reservasi' },
+    { href: '/#promo', label: 'Promo Spesial' },
+    { href: '/#faq', label: 'FAQ' },
   ];
 
   return (
@@ -40,13 +41,13 @@ export function PublicNav() {
           {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center gap-6">
             {publicLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -88,7 +89,7 @@ export function PublicNav() {
           <div className="flex md:hidden items-center gap-2">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 focus:outline-none"
+              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 focus:outline-none cursor-pointer"
               aria-label="Toggle Navigation Menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -102,14 +103,14 @@ export function PublicNav() {
         <div className="md:hidden border-b border-zinc-800 bg-zinc-950 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
           <div className="flex flex-col space-y-2">
             {publicLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="px-3 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
 

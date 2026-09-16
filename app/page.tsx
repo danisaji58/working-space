@@ -88,7 +88,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative pt-16 pb-24 md:pt-28 md:pb-36 overflow-hidden border-b border-zinc-900">
         {/* Subtle radial architectural spotlight */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[550px] bg-[radial-gradient(ellipse_at_top,rgba(197,168,128,0.09),transparent_70%)] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-275 h-137.5 bg-[radial-gradient(ellipse_at_top,rgba(197,168,128,0.09),transparent_70%)] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl space-y-6">
@@ -566,10 +566,10 @@ export default function LandingPage() {
               <div className="space-y-3">
                 <div className="text-zinc-200 uppercase font-semibold">Navigasi</div>
                 <ul className="space-y-2 text-zinc-400">
-                  <li><a href="#katalog" className="hover:text-white transition-colors">Pilihan Ruang</a></li>
-                  <li><a href="#fasilitas" className="hover:text-white transition-colors">Fasilitas</a></li>
-                  <li><a href="#cara-pesan" className="hover:text-white transition-colors">Cara Kerja</a></li>
-                  <li><a href="#faq" className="hover:text-white transition-colors">FAQ</a></li>
+                  <li><Link href="/#katalog" className="hover:text-white transition-colors">Pilihan Ruang</Link></li>
+                  <li><Link href="/#fasilitas" className="hover:text-white transition-colors">Fasilitas</Link></li>
+                  <li><Link href="/#cara-pesan" className="hover:text-white transition-colors">Cara Kerja</Link></li>
+                  <li><Link href="/#faq" className="hover:text-white transition-colors">FAQ</Link></li>
                 </ul>
               </div>
 
