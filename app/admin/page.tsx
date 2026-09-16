@@ -76,10 +76,6 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Pusat Kendali Pengelola</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Dashboard Operasional Coworking
           </h1>
@@ -286,13 +282,12 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${
-                      idx === 0
-                        ? 'bg-[#c5a880]'
-                        : idx === 1
+                    className={`h-full rounded-full ${idx === 0
+                      ? 'bg-[#c5a880]'
+                      : idx === 1
                         ? 'bg-zinc-300'
                         : 'bg-emerald-500'
-                    }`}
+                      }`}
                     style={{ width: `${item.persentase}%` }}
                   />
                 </div>

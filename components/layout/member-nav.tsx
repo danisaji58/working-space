@@ -97,13 +97,12 @@ export function MemberNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    isActive
-                      ? 'bg-zinc-800/90 text-white font-semibold shadow-xs border border-zinc-700/60'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80 border border-transparent'
-                  }`}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isActive
+                    ? 'bg-zinc-800/90 text-white font-semibold shadow-xs border border-zinc-700/60'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80 border border-transparent'
+                    }`}
                 >
-                  <Icon className="w-3.5 h-3.5 text-zinc-400" />
+                  {/* <Icon className="w-3.5 h-3.5" /> */}
                   <span>{link.label}</span>
                 </Link>
               );
@@ -117,16 +116,15 @@ export function MemberNav() {
                 {/* Profile Trigger Button */}
                 <button
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className={`flex items-center gap-2.5 pl-2.5 pr-2 py-1.5 rounded-full border transition-all cursor-pointer ${
-                    isProfileDropdownOpen
-                      ? 'bg-zinc-800 border-[#c5a880]/50 ring-2 ring-[#c5a880]/20'
-                      : 'bg-zinc-900/80 hover:bg-zinc-800/90 border-zinc-800 hover:border-zinc-700'
-                  }`}
+                  className={`flex items-center gap-2.5 pl-2.5 pr-2 py-1.5 rounded-full border transition-all cursor-pointer ${isProfileDropdownOpen
+                    ? 'bg-zinc-800 border-[#c5a880]/50 ring-2 ring-[#c5a880]/20'
+                    : 'bg-zinc-900/80 hover:bg-zinc-800/90 border-zinc-800 hover:border-zinc-700'
+                    }`}
                   aria-expanded={isProfileDropdownOpen}
                   aria-haspopup="true"
                 >
                   {/* User Avatar */}
-                  <div className="relative w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-mono font-bold text-zinc-200">
+                  <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-[11px] font-mono font-bold text-zinc-200">
                     {user?.foto ? (
                       <Image
                         src={user.foto}
@@ -138,7 +136,6 @@ export function MemberNav() {
                     ) : (
                       <span>{userInitials}</span>
                     )}
-                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-zinc-950" />
                   </div>
 
                   {/* Name & Instansi */}
@@ -153,9 +150,8 @@ export function MemberNav() {
 
                   {/* Chevron Icon */}
                   <ChevronDown
-                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
-                      isProfileDropdownOpen ? 'rotate-180 text-white' : ''
-                    }`}
+                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180 text-white' : ''
+                      }`}
                   />
                 </button>
 
@@ -165,7 +161,7 @@ export function MemberNav() {
                     {/* User Header Details */}
                     <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60 mb-2 space-y-1">
                       <div className="flex items-center gap-2.5">
-                        <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-xs font-bold text-[#c5a880] shrink-0">
+                        <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-mono text-xs font-bold text-[#c5a880] shrink-0">
                           {user?.foto ? (
                             <Image
                               src={user.foto}
@@ -337,11 +333,10 @@ export function MemberNav() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
-                    isActive
-                      ? 'bg-zinc-800 text-white font-semibold'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${isActive
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{link.label}</span>
@@ -353,11 +348,10 @@ export function MemberNav() {
               <Link
                 href="/member/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
-                  pathname === '/member/profile'
-                    ? 'bg-zinc-800 text-white font-semibold'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-                }`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${pathname === '/member/profile'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                  }`}
               >
                 <User className="w-4 h-4" />
                 <span>Profil Saya</span>

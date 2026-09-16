@@ -166,10 +166,7 @@ export default function AdminDiscountsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Program Promosi</span>
-          </div>
+
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Kelola Diskon & Promo
           </h1>

@@ -102,10 +102,6 @@ export default function AdminReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Kompilasi Finansial & Operasional (Endpoints 46 & 47)</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Laporan Finansial & Reservasi
           </h1>

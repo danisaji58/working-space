@@ -233,10 +233,7 @@ export default function AdminSpacesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Inventaris Properti</span>
-          </div>
+
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Kelola Ruang Kerja & Workstation
           </h1>
@@ -302,70 +299,70 @@ export default function AdminSpacesPage() {
                 {filteredSpaces.map((space) => {
                   const spaceId = space.id_space ?? space.id ?? 1;
                   return (
-                  <tr key={spaceId} className="hover:bg-zinc-800/30 transition-colors">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
-                          <Image
-                            src={resolveSpaceImage(space)}
-                            alt={space.nama_space}
-                            fill
-                            unoptimized
-                            sizes="48px"
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="font-sans">
-                          <div className="font-semibold text-white">
-                            {space.nama_space}
+                    <tr key={spaceId} className="hover:bg-zinc-800/30 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
+                            <Image
+                              src={resolveSpaceImage(space)}
+                              alt={space.nama_space}
+                              fill
+                              unoptimized
+                              sizes="48px"
+                              className="object-cover"
+                            />
                           </div>
-                          <div className="text-[10px] text-zinc-400 line-clamp-1 max-w-xs">
-                            {space.deskripsi}
+                          <div className="font-sans">
+                            <div className="font-semibold text-white">
+                              {space.nama_space}
+                            </div>
+                            <div className="text-[10px] text-zinc-400 line-clamp-1 max-w-xs">
+                              {space.deskripsi}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 font-sans">
-                      <Badge variant="accent" size="sm">
-                        {getSpaceTypeLabel(space.tipe)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3.5 text-zinc-200">
-                      {space.kapasitas} Orang
-                    </td>
-                    <td className="px-4 py-3.5 text-white font-semibold">
-                      {formatIDR(space.harga_per_jam)}
-                    </td>
-                    <td className="px-4 py-3.5 font-sans">
-                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <span>Aktif</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-sans">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditModal(space)}
-                          leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteTarget(space)}
-                          className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/20"
-                          leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-                        >
-                          Hapus
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="px-4 py-3.5 font-sans">
+                        <Badge variant="accent" size="sm">
+                          {getSpaceTypeLabel(space.tipe)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3.5 text-zinc-200">
+                        {space.kapasitas} Orang
+                      </td>
+                      <td className="px-4 py-3.5 text-white font-semibold">
+                        {formatIDR(space.harga_per_jam)}
+                      </td>
+                      <td className="px-4 py-3.5 font-sans">
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span>Aktif</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-sans">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditModal(space)}
+                            leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteTarget(space)}
+                            className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/20"
+                            leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                          >
+                            Hapus
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

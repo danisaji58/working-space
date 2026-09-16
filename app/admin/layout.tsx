@@ -59,9 +59,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Admin Console Active</span>
             </div>
-            <span className="text-xs text-zinc-400 font-mono">
-              • {user?.nama_coworking || 'The Hive Coworking'}
-            </span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -77,11 +74,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className={`flex items-center gap-2.5 pl-2.5 pr-2 py-1.5 rounded-full border transition-all cursor-pointer ${
-                  isProfileDropdownOpen
+                className={`flex items-center gap-2.5 pl-2.5 pr-2 py-1.5 rounded-full border transition-all cursor-pointer ${isProfileDropdownOpen
                     ? 'bg-zinc-800 border-[#c5a880]/50 ring-2 ring-[#c5a880]/20'
                     : 'bg-zinc-900/90 hover:bg-zinc-800/90 border-zinc-800 hover:border-zinc-700'
-                }`}
+                  }`}
                 aria-expanded={isProfileDropdownOpen}
               >
                 <div className="relative w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-mono font-bold text-[#c5a880]">
@@ -96,7 +92,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   ) : (
                     <span>{adminInitials}</span>
                   )}
-                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-zinc-950" />
                 </div>
 
                 <div className="flex flex-col text-left max-w-[130px]">
@@ -109,9 +104,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
 
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
-                    isProfileDropdownOpen ? 'rotate-180 text-white' : ''
-                  }`}
+                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180 text-white' : ''
+                    }`}
                 />
               </button>
 

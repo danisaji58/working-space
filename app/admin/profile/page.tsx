@@ -109,9 +109,9 @@ export default function AdminProfilePage() {
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              {/* <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                 {formData.nama_coworking || user?.nama_coworking || 'The Hive Coworking'}
-              </h1>
+              </h1> */}
               <p className="text-xs text-zinc-400 font-mono">
                 Penanggung Jawab: <span className="text-zinc-200">{formData.nama_pemilik || user?.nama || 'Admin Utama'}</span> • Kontak: {formData.telp || '0812-3456-7890'}
               </p>

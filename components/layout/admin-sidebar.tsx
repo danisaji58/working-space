@@ -93,19 +93,8 @@ export function AdminSidebar() {
             </button>
           </div>
 
-          {/* Coworking status pill */}
-          <div className="p-3 mx-3 my-3 rounded-xl bg-zinc-900/70 border border-zinc-800 text-xs">
-            <div className="flex items-center gap-1.5 text-zinc-300 font-medium truncate">
-              <Sparkles className="w-3.5 h-3.5 text-[#c5a880] shrink-0" />
-              <span className="truncate">{user?.nama_coworking || 'The Hive Coworking'}</span>
-            </div>
-            <div className="text-[10px] text-zinc-400 mt-0.5 truncate">
-              Pengelola: {user?.nama || 'Admin Utama'}
-            </div>
-          </div>
-
           {/* Navigation Links */}
-          <nav className="px-3 space-y-1 mt-2">
+          <nav className="px-3 space-y-1 mt-4">
             <div className="px-3 py-1 text-[10px] font-mono tracking-widest text-zinc-400 uppercase">
               Menu Utama
             </div>

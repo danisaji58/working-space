@@ -95,7 +95,7 @@ export default function AdminMembersPage() {
     setEditingMember(member);
     setUploadStatus('idle');
     const targetId = member.id_member || member.id || 0;
-    
+
     // Set immediate defaults
     setFormData({
       nama_member: member.nama_member,
@@ -211,10 +211,6 @@ export default function AdminMembersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Manajemen Pengguna</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Data Member & Pengunjung
           </h1>
