@@ -5,7 +5,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { AdminSidebar } from '@/components/layout/admin-sidebar';
+import { PublicNav } from '@/components/layout/public-nav';
+import { ForbiddenView } from '@/components/auth/ForbiddenView';
 import { useAuth } from '@/context/auth-context';
+import { normalizeUploadUrl } from '@/lib/utils';
 import {
   ChevronDown,
   User,
@@ -21,7 +24,7 @@ import {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated, isLoading, role } = useAuth();
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +51,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     .join('')
     .toUpperCase();
 
+  // Smooth loading state to prevent flash of content or false forbidden screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-700/80 animate-pulse flex items-center justify-center font-mono font-bold text-xs text-[#c5a880] shadow-lg">
+            SS
+          </div>
+          <span className="text-xs font-mono text-zinc-500 animate-pulse">
+            Memverifikasi hak akses administrator...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Block unauthorized direct access (guest or non-admin) with ForbiddenView
+  if (!isAuthenticated || role !== 'admin_space') {
+    return (
+      <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col">
+        <PublicNav />
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
+          <ForbiddenView
+            type="admin"
+            reason={!isAuthenticated ? 'unauthenticated' : 'insufficient_permissions'}
+          />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col lg:flex-row">
       <AdminSidebar />
@@ -72,10 +106,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <div className="relative w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-mono font-bold text-[#c5a880]">
                   {user?.foto ? (
                     <Image
-                      src={user.foto}
+                      src={normalizeUploadUrl(user.foto, 'members')}
                       alt={user?.nama || 'Admin'}
                       fill
                       sizes="28px"
+                      unoptimized
                       className="object-cover"
                     />
                   ) : (
@@ -105,10 +140,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-xs font-bold text-[#c5a880] shrink-0">
                         {user?.foto ? (
                           <Image
-                            src={user.foto}
+                            src={normalizeUploadUrl(user.foto, 'members')}
                             alt={user?.nama || 'Admin'}
                             fill
                             sizes="36px"
+                            unoptimized
                             className="object-cover"
                           />
                         ) : (

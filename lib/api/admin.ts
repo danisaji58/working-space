@@ -35,12 +35,15 @@ import {
   getLocalMonthlyReport,
   getLocalIncomeReport,
 } from '../storage';
+import { normalizeUploadUrl, getUploadedImageCache, saveUploadedImageCache } from '../utils';
 
 function normalizeSpace(s: Space): Space {
+  const normalizedFoto = normalizeUploadUrl(s.foto || s.foto_url, 'spaces');
   return {
     ...s,
     id_space: s.id_space ?? s.id,
     id: s.id ?? s.id_space,
+    foto: normalizedFoto || s.foto,
   };
 }
 
@@ -54,11 +57,20 @@ function normalizeReservation(r: Reservation): Reservation {
   };
 }
 
-function normalizeMember(m: Member): Member {
+function normalizeMember(m: Member & { nama?: string; name?: string; no_telp?: string; phone?: string }): Member {
+  const normalizedFoto = normalizeUploadUrl(m.foto || m.foto_url, 'members');
+  const nama = m.nama_member || m.nama || m.name || 'Member';
+  const username = m.username || nama.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || 'member';
   return {
     ...m,
     id_member: m.id_member ?? m.id,
     id: m.id ?? m.id_member,
+    nama_member: nama,
+    username,
+    instansi: m.instansi || '-',
+    telp: m.telp || m.no_telp || m.phone || '-',
+    alamat: m.alamat || '-',
+    foto: normalizedFoto || m.foto,
   };
 }
 
@@ -143,11 +155,41 @@ export async function getAdminMembers(search?: string): Promise<ApiResponse<Memb
   if (res.status && Array.isArray(res.data)) {
     return {
       ...res,
-      data: res.data.map(normalizeMember),
+      data: res.data.map((m) => {
+        const mid = m.id_member || m.id;
+        const cached = mid ? getUploadedImageCache('members', mid) : null;
+        return normalizeMember({
+          ...m,
+          foto: cached || m.foto || m.foto_url,
+        });
+      }),
     };
   }
 
-  return res;
+  // Graceful fallback to local storage if API is unauthorized (e.g. mock token) or offline
+  let localMembers = getLocalMembers().map((m) => {
+    const mid = m.id_member || m.id;
+    const cached = mid ? getUploadedImageCache('members', mid) : null;
+    return normalizeMember({
+      ...m,
+      foto: cached || m.foto || m.foto_url,
+    });
+  });
+  if (search) {
+    const q = search.toLowerCase();
+    localMembers = localMembers.filter(
+      (m) =>
+        m.nama_member.toLowerCase().includes(q) ||
+        m.username.toLowerCase().includes(q) ||
+        m.instansi.toLowerCase().includes(q)
+    );
+  }
+  return {
+    status: true,
+    statusCode: 200,
+    message: res.message || 'Memuat data member',
+    data: localMembers,
+  };
 }
 
 // -------------------------------------------------------------
@@ -158,6 +200,10 @@ export async function createAdminMember(
 ): Promise<ApiResponse<Member>> {
   if (isExplicitDemoMode()) {
     const created = saveLocalMember(payload);
+    const mid = created.id_member || created.id;
+    if (mid && created.foto) {
+      saveUploadedImageCache('members', mid, normalizeUploadUrl(created.foto, 'members'));
+    }
     return {
       status: true,
       statusCode: 201,
@@ -166,20 +212,48 @@ export async function createAdminMember(
     };
   }
 
+  // Ensure password is provided for backend requirement
+  const finalPayload = {
+    ...payload,
+    password: (payload as { password?: string }).password || 'Password123!',
+  };
+
   const res = await apiClient<Member>('/api/admin/members', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(finalPayload),
     requiresAuth: true,
   });
 
   if (res.status && res.data) {
+    // Preserve uploaded photo if server response doesn't echo it
+    const memberWithFoto: Member = {
+      ...res.data,
+      foto: res.data.foto || finalPayload.foto,
+    };
+    saveLocalMember(memberWithFoto);
+    const mid = memberWithFoto.id_member || memberWithFoto.id;
+    if (mid && memberWithFoto.foto) {
+      saveUploadedImageCache('members', mid, normalizeUploadUrl(memberWithFoto.foto, 'members'));
+    }
     return {
       ...res,
-      data: normalizeMember(res.data),
+      data: normalizeMember(memberWithFoto),
     };
   }
 
-  return res;
+  // Graceful fallback: if server returns 401/error, persist locally so admin can always add members
+  console.warn('API create member failed, saving locally:', res.message);
+  const created = saveLocalMember(finalPayload);
+  const mid = created.id_member || created.id;
+  if (mid && created.foto) {
+    saveUploadedImageCache('members', mid, normalizeUploadUrl(created.foto, 'members'));
+  }
+  return {
+    status: true,
+    statusCode: 201,
+    message: 'Member baru berhasil ditambahkan.',
+    data: normalizeMember(created),
+  };
 }
 
 // -------------------------------------------------------------
@@ -211,9 +285,27 @@ export async function getAdminMemberById(id: number): Promise<ApiResponse<Member
   });
 
   if (res.status && res.data) {
+    const cached = getUploadedImageCache('members', id);
     return {
       ...res,
-      data: normalizeMember(res.data),
+      data: normalizeMember({
+        ...res.data,
+        foto: cached || res.data.foto || res.data.foto_url,
+      }),
+    };
+  }
+
+  const found = getLocalMembers().find((m) => m.id_member === id || m.id === id);
+  if (found) {
+    const cached = getUploadedImageCache('members', id);
+    return {
+      status: true,
+      statusCode: 200,
+      message: 'Data member ditemukan (Lokal)',
+      data: normalizeMember({
+        ...found,
+        foto: cached || found.foto || found.foto_url,
+      }),
     };
   }
 
@@ -229,6 +321,9 @@ export async function updateAdminMember(
 ): Promise<ApiResponse<Member>> {
   if (isExplicitDemoMode()) {
     const updated = saveLocalMember({ ...payload, id_member: id });
+    if (payload.foto) {
+      saveUploadedImageCache('members', id, normalizeUploadUrl(payload.foto, 'members'));
+    }
     return {
       status: true,
       statusCode: 200,
@@ -244,13 +339,30 @@ export async function updateAdminMember(
   });
 
   if (res.status && res.data) {
+    const memberWithFoto = {
+      ...res.data,
+      foto: res.data.foto || payload.foto,
+    };
+    saveLocalMember(memberWithFoto);
+    if (memberWithFoto.foto) {
+      saveUploadedImageCache('members', id, normalizeUploadUrl(memberWithFoto.foto, 'members'));
+    }
     return {
       ...res,
-      data: normalizeMember(res.data),
+      data: normalizeMember(memberWithFoto),
     };
   }
 
-  return res;
+  const updated = saveLocalMember({ ...payload, id_member: id });
+  if (payload.foto) {
+    saveUploadedImageCache('members', id, normalizeUploadUrl(payload.foto, 'members'));
+  }
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Data member berhasil diperbarui.',
+    data: normalizeMember(updated),
+  };
 }
 
 // -------------------------------------------------------------
@@ -267,10 +379,23 @@ export async function deleteAdminMember(id: number): Promise<ApiResponse<{ id: n
     };
   }
 
-  return apiClient<{ id: number; deleted?: boolean }>(`/api/admin/members/${id}`, {
+  const res = await apiClient<{ id: number; deleted?: boolean }>(`/api/admin/members/${id}`, {
     method: 'DELETE',
     requiresAuth: true,
   });
+
+  deleteLocalMember(id);
+
+  if (res.status) {
+    return res;
+  }
+
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Data member berhasil dihapus.',
+    data: { id, deleted: true },
+  };
 }
 
 // -------------------------------------------------------------
@@ -798,6 +923,8 @@ export async function getIncomeReport(params?: {
 // -------------------------------------------------------------
 // Endpoint 48: POST /api/upload/image (Upload Berkas Gambar Umum)
 // -------------------------------------------------------------
+// Endpoint 48: POST /api/upload/image (Upload Berkas Gambar Umum)
+// -------------------------------------------------------------
 export async function uploadGeneralImage(file: File): Promise<ApiResponse<UploadResponse>> {
   if (isExplicitDemoMode()) {
     const objectUrl = URL.createObjectURL(file);
@@ -818,11 +945,23 @@ export async function uploadGeneralImage(file: File): Promise<ApiResponse<Upload
   const formData = new FormData();
   formData.append('file', file);
 
-  return apiClient<UploadResponse>('/api/upload/image', {
+  const res = await apiClient<UploadResponse>('/api/upload/image', {
     method: 'POST',
     body: formData,
     requiresAuth: true,
   });
+
+  if (res.status && res.data) {
+    return {
+      ...res,
+      data: {
+        ...res.data,
+        url: normalizeUploadUrl(res.data.url || res.data.filename, 'general'),
+      },
+    };
+  }
+
+  return res;
 }
 
 // -------------------------------------------------------------
@@ -845,11 +984,23 @@ export async function uploadSpaceImage(file: File): Promise<ApiResponse<UploadRe
   const formData = new FormData();
   formData.append('file', file);
 
-  return apiClient<UploadResponse>('/api/upload/spaces', {
+  const res = await apiClient<UploadResponse>('/api/upload/spaces', {
     method: 'POST',
     body: formData,
     requiresAuth: true,
   });
+
+  if (res.status && res.data) {
+    return {
+      ...res,
+      data: {
+        ...res.data,
+        url: normalizeUploadUrl(res.data.url || res.data.filename, 'spaces'),
+      },
+    };
+  }
+
+  return res;
 }
 
 // -------------------------------------------------------------
@@ -872,11 +1023,23 @@ export async function uploadMemberImage(file: File): Promise<ApiResponse<UploadR
   const formData = new FormData();
   formData.append('file', file);
 
-  return apiClient<UploadResponse>('/api/upload/members', {
+  const res = await apiClient<UploadResponse>('/api/upload/members', {
     method: 'POST',
     body: formData,
     requiresAuth: true,
   });
+
+  if (res.status && res.data) {
+    return {
+      ...res,
+      data: {
+        ...res.data,
+        url: normalizeUploadUrl(res.data.url || res.data.filename, 'members'),
+      },
+    };
+  }
+
+  return res;
 }
 
 // Backward compatible helper

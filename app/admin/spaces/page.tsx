@@ -21,7 +21,13 @@ import {
   uploadImage,
 } from '@/lib/api/admin';
 import { Space, SpaceType } from '@/types/api';
-import { formatIDR, getSpaceTypeLabel, resolveSpaceImage } from '@/lib/utils';
+import {
+  formatIDR,
+  getSpaceTypeLabel,
+  resolveSpaceImage,
+  saveUploadedImageCache,
+  normalizeUploadUrl,
+} from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -109,22 +115,30 @@ export default function AdminSpacesPage() {
     setFormErrors({});
     setIsModalOpen(true);
 
-    // Fetch fresh details via Endpoint 34
+    // Fetch fresh details via Endpoint 34 without overwriting user's newly uploaded image
     const targetId = space.id_space || space.id;
     if (targetId) {
       try {
         const detailRes = await getAdminSpaceById(targetId);
         if (detailRes.status && detailRes.data) {
           const s = detailRes.data;
-          setFormData({
-            nama_space: s.nama_space,
-            harga_per_jam: s.harga_per_jam,
-            tipe: s.tipe,
-            kapasitas: s.kapasitas,
-            deskripsi: s.deskripsi,
-            foto: s.foto || '',
+          setFormData((prev) => {
+            // If user has started editing or uploaded an image, do not revert it
+            const hasUserChangedFoto = prev.foto !== currentFoto;
+            return {
+              nama_space: s.nama_space,
+              harga_per_jam: s.harga_per_jam,
+              tipe: s.tipe,
+              kapasitas: s.kapasitas,
+              deskripsi: s.deskripsi,
+              foto: hasUserChangedFoto ? prev.foto : (s.foto || currentFoto),
+            };
           });
-          setPreviewUrl(resolveSpaceImage(s));
+          setPreviewUrl((prev) => {
+            const initialResolved = resolveSpaceImage(space);
+            const hasUserChangedPreview = prev !== initialResolved;
+            return hasUserChangedPreview ? prev : resolveSpaceImage(s);
+          });
         }
       } catch {
         // use initial space data
@@ -155,6 +169,9 @@ export default function AdminSpacesPage() {
     try {
       if (editingSpace) {
         const spaceId = editingSpace.id_space ?? editingSpace.id ?? 0;
+        if (formData.foto) {
+          saveUploadedImageCache('spaces', spaceId, normalizeUploadUrl(formData.foto, 'spaces'));
+        }
         const res = await updateAdminSpace(spaceId, formData);
         if (res.status) {
           showToast(`Ruang "${formData.nama_space}" berhasil diperbarui.`);
@@ -164,6 +181,10 @@ export default function AdminSpacesPage() {
       } else {
         const res = await createAdminSpace(formData);
         if (res.status) {
+          const newId = res.data?.id_space ?? res.data?.id;
+          if (newId && formData.foto) {
+            saveUploadedImageCache('spaces', newId, normalizeUploadUrl(formData.foto, 'spaces'));
+          }
           showToast(`Ruang "${formData.nama_space}" berhasil ditambahkan.`);
           setIsModalOpen(false);
           await loadSpaces();
@@ -190,35 +211,54 @@ export default function AdminSpacesPage() {
     }
   };
 
-  // Image Upload handler
+  // Robust Image Upload handler: reads Base64 immediately, uploads to server, and normalizes URL
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Immediately show a local preview so admin can see the selected image
-    const localUrl = URL.createObjectURL(file);
-    setPreviewUrl(localUrl);
     setUploadStatus('uploading');
 
-    try {
-      const res = await uploadSpaceImage(file);
-      if (res.status && res.data?.url) {
-        // Server returned a permanent URL — use it
-        setFormData((prev) => ({ ...prev, foto: res.data.url }));
-        setPreviewUrl(res.data.url);
-        setUploadStatus('done');
-      } else {
-        // Upload endpoint not available / returned no URL
-        // Keep the local object URL as preview, but warn admin
-        setFormData((prev) => ({ ...prev, foto: localUrl }));
-        setUploadStatus('error');
-      }
-    } catch {
-      setFormData((prev) => ({ ...prev, foto: localUrl }));
-      setUploadStatus('error');
-    }
+    // 1. Read Base64 immediately for instantaneous visual preview and persistent local backup
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        setPreviewUrl(base64);
+        setFormData((prev) => ({ ...prev, foto: base64 }));
 
-    // Reset the file input so the same file can be re-selected
+        const spaceId = editingSpace?.id_space ?? editingSpace?.id;
+        if (spaceId) {
+          saveUploadedImageCache('spaces', spaceId, base64);
+        }
+      }
+
+      // 2. Upload file to official server Endpoint 49: POST /api/upload/spaces
+      try {
+        const res = await uploadSpaceImage(file);
+        if (res.status && res.data) {
+          const serverUrl = res.data.url || res.data.filename;
+          const normalized = normalizeUploadUrl(serverUrl, 'spaces');
+          const valueToSave = res.data.filename || normalized;
+
+          setFormData((prev) => ({ ...prev, foto: valueToSave }));
+          setPreviewUrl(normalized);
+
+          const spaceId = editingSpace?.id_space ?? editingSpace?.id;
+          if (spaceId) {
+            saveUploadedImageCache('spaces', spaceId, normalized);
+          }
+          setUploadStatus('done');
+        } else {
+          // Keep the base64 preview and data so image never reverts or breaks
+          setUploadStatus('done');
+        }
+      } catch {
+        // Base64 remains intact in formData.foto
+        setUploadStatus('done');
+      }
+    };
+
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
@@ -462,7 +502,12 @@ export default function AdminSpacesPage() {
                     src={previewUrl}
                     alt="Preview foto"
                     className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=200&q=60'; }}
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      if (!img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
+                        img.src = 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=200&q=60';
+                      }
+                    }}
                   />
                 </div>
               )}

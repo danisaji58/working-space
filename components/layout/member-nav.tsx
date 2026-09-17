@@ -21,13 +21,19 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/Button';
+import { normalizeUploadUrl } from '@/lib/utils';
 
 export function MemberNav() {
   const pathname = usePathname();
   const { user, role, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [user?.foto]);
 
   // Main navigation links (Profil is moved to top right user profile avatar)
   const navLinks = [
@@ -125,13 +131,15 @@ export function MemberNav() {
                 >
                   {/* User Avatar */}
                   <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-[11px] font-mono font-bold text-zinc-200">
-                    {user?.foto ? (
+                    {user?.foto && !avatarLoadError ? (
                       <Image
-                        src={user.foto}
+                        src={normalizeUploadUrl(user.foto, 'members')}
                         alt={user?.nama || 'User'}
                         fill
+                        unoptimized
                         sizes="28px"
                         className="object-cover"
+                        onError={() => setAvatarLoadError(true)}
                       />
                     ) : (
                       <span>{userInitials}</span>
@@ -162,13 +170,15 @@ export function MemberNav() {
                     <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60 mb-2 space-y-1">
                       <div className="flex items-center gap-2.5">
                         <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-mono text-xs font-bold text-[#c5a880] shrink-0">
-                          {user?.foto ? (
+                          {user?.foto && !avatarLoadError ? (
                             <Image
-                              src={user.foto}
+                              src={normalizeUploadUrl(user.foto, 'members')}
                               alt={user?.nama || 'User'}
                               fill
+                              unoptimized
                               sizes="36px"
                               className="object-cover"
+                              onError={() => setAvatarLoadError(true)}
                             />
                           ) : (
                             <span>{userInitials}</span>
@@ -292,9 +302,10 @@ export function MemberNav() {
               <div className="relative w-10 h-10 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-xs font-bold text-zinc-200 shrink-0">
                 {user?.foto ? (
                   <Image
-                    src={user.foto}
+                    src={normalizeUploadUrl(user.foto, 'members')}
                     alt={user?.nama || 'User'}
                     fill
+                    unoptimized
                     sizes="40px"
                     className="object-cover"
                   />

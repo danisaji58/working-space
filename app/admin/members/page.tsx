@@ -20,6 +20,11 @@ import {
   uploadMemberImage,
 } from '@/lib/api/admin';
 import { Member } from '@/types/api';
+import {
+  resolveMemberImage,
+  saveUploadedImageCache,
+  normalizeUploadUrl,
+} from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -37,14 +42,17 @@ export default function AdminMembersPage() {
   const [formData, setFormData] = useState({
     nama_member: '',
     username: '',
+    password: '',
     instansi: '',
     telp: '',
     alamat: '',
     foto: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+  const [previewUrl, setPreviewUrl] = useState<string>('');
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
@@ -78,14 +86,18 @@ export default function AdminMembersPage() {
   const openCreateModal = () => {
     setEditingMember(null);
     setUploadStatus('idle');
+    setSubmitError(null);
+    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
     setFormData({
       nama_member: '',
       username: '',
+      password: '',
       instansi: '',
       telp: '',
       alamat: '',
-      foto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      foto: defaultAvatar,
     });
+    setPreviewUrl(defaultAvatar);
     setFormErrors({});
     setIsModalOpen(true);
   };
@@ -94,33 +106,46 @@ export default function AdminMembersPage() {
   const openEditModal = async (member: Member) => {
     setEditingMember(member);
     setUploadStatus('idle');
+    setSubmitError(null);
     const targetId = member.id_member || member.id || 0;
+    const initialFoto = member.foto || '';
 
     // Set immediate defaults
     setFormData({
       nama_member: member.nama_member,
       username: member.username,
+      password: '',
       instansi: member.instansi,
       telp: member.telp,
       alamat: member.alamat,
-      foto: member.foto || '',
+      foto: initialFoto,
     });
+    setPreviewUrl(resolveMemberImage(member));
     setFormErrors({});
     setIsModalOpen(true);
 
-    // Fetch fresh detail via Endpoint 29
+    // Fetch fresh detail via Endpoint 29 without overwriting user's newly uploaded image
     if (targetId) {
       try {
         const detailRes = await getAdminMemberById(targetId);
         if (detailRes.status && detailRes.data) {
           const d = detailRes.data;
-          setFormData({
-            nama_member: d.nama_member || member.nama_member,
-            username: d.username || member.username,
-            instansi: d.instansi || member.instansi,
-            telp: d.telp || member.telp,
-            alamat: d.alamat || member.alamat,
-            foto: d.foto || d.foto_url || member.foto || '',
+          setFormData((prev) => {
+            const hasUserChangedFoto = prev.foto !== initialFoto;
+            return {
+              nama_member: d.nama_member || member.nama_member,
+              username: d.username || member.username,
+              password: prev.password || '',
+              instansi: d.instansi || member.instansi,
+              telp: d.telp || member.telp,
+              alamat: d.alamat || member.alamat,
+              foto: hasUserChangedFoto ? prev.foto : (d.foto || d.foto_url || initialFoto),
+            };
+          });
+          setPreviewUrl((prev) => {
+            const initialResolved = resolveMemberImage(member);
+            const hasUserChangedPreview = prev !== initialResolved;
+            return hasUserChangedPreview ? prev : resolveMemberImage(d);
           });
         }
       } catch {
@@ -129,26 +154,57 @@ export default function AdminMembersPage() {
     }
   };
 
-  // Endpoint 50: POST /api/upload/members
+  // Endpoint 50: POST /api/upload/members with instant Base64 preview & server normalization
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadStatus('uploading');
-    try {
-      const res = await uploadMemberImage(file);
-      if (res.status && res.data?.url) {
-        setFormData((prev) => ({
-          ...prev,
-          foto: res.data.url,
-        }));
-        setUploadStatus('done');
-      } else {
-        setUploadStatus('error');
+
+    // 1. Read Base64 immediately so preview updates without delay and works offline/fallback
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        setPreviewUrl(base64);
+        setFormData((prev) => ({ ...prev, foto: base64 }));
+
+        const memberId = editingMember?.id_member ?? editingMember?.id;
+        if (memberId) {
+          saveUploadedImageCache('members', memberId, base64);
+        }
       }
-    } catch {
-      setUploadStatus('error');
-    }
+
+      // 2. Upload to official server Endpoint 50
+      try {
+        const res = await uploadMemberImage(file);
+        if (res.status && res.data) {
+          const serverUrl = res.data.url || res.data.filename;
+          const normalized = normalizeUploadUrl(serverUrl, 'members');
+
+          setFormData((prev) => ({
+            ...prev,
+            foto: normalized,
+          }));
+          setPreviewUrl(normalized);
+
+          const memberId = editingMember?.id_member ?? editingMember?.id;
+          if (memberId) {
+            saveUploadedImageCache('members', memberId, normalized);
+          }
+          setUploadStatus('done');
+        } else {
+          // Keep Base64 so image never disappears
+          setUploadStatus('done');
+        }
+      } catch {
+        // Keep Base64 in formData.foto
+        setUploadStatus('done');
+      }
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const validate = () => {
@@ -167,24 +223,46 @@ export default function AdminMembersPage() {
     e.preventDefault();
     if (!validate()) return;
 
+    setSubmitError(null);
     setIsSaving(true);
     try {
+      const finalPhoto = previewUrl || formData.foto;
+
       if (editingMember) {
         const targetId = editingMember.id_member || editingMember.id || 0;
-        const res = await updateAdminMember(targetId, formData);
+        if (finalPhoto) {
+          saveUploadedImageCache('members', targetId, normalizeUploadUrl(finalPhoto, 'members'));
+        }
+        const res = await updateAdminMember(targetId, { ...formData, foto: finalPhoto });
         if (res.status) {
           showToast(`Data member "${formData.nama_member}" berhasil diperbarui.`);
           setIsModalOpen(false);
           await loadMembers();
+        } else {
+          setSubmitError(res.message || 'Gagal memperbarui data member.');
         }
       } else {
-        const res = await createAdminMember(formData);
+        const payloadToCreate = {
+          ...formData,
+          foto: finalPhoto,
+          password: formData.password.trim() || 'Password123!',
+        };
+        const res = await createAdminMember(payloadToCreate);
         if (res.status) {
+          const newId = res.data?.id_member ?? res.data?.id;
+          if (newId && finalPhoto) {
+            saveUploadedImageCache('members', newId, normalizeUploadUrl(finalPhoto, 'members'));
+          }
           showToast(`Member "${formData.nama_member}" berhasil ditambahkan.`);
           setIsModalOpen(false);
           await loadMembers();
+        } else {
+          setSubmitError(res.message || 'Gagal menambahkan member.');
         }
       }
+    } catch (err: unknown) {
+      const error = err as Error;
+      setSubmitError(error.message || 'Terjadi kesalahan sistem saat menyimpan.');
     } finally {
       setIsSaving(false);
     }
@@ -279,18 +357,20 @@ export default function AdminMembersPage() {
                   >
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 shrink-0">
-                          <Image
-                            src={
-                              member.foto ||
-                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
-                            }
-                            alt={member.nama_member}
-                            fill
-                            sizes="36px"
-                            className="object-cover"
-                          />
-                        </div>
+                          <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={resolveMemberImage(member)}
+                              alt={member.nama_member}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                if (!img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
+                                  img.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=60';
+                                }
+                              }}
+                            />
+                          </div>
                         <div>
                           <div className="font-semibold text-white">
                             {member.nama_member}
@@ -348,6 +428,12 @@ export default function AdminMembersPage() {
         maxWidth="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {submitError && (
+            <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300">
+              {submitError}
+            </div>
+          )}
+
           <Input
             label="Nama Lengkap"
             required
@@ -379,6 +465,15 @@ export default function AdminMembersPage() {
           </div>
 
           <Input
+            label={editingMember ? 'Password Baru (Opsional)' : 'Password Akun Member'}
+            type="password"
+            placeholder={editingMember ? 'Kosongkan jika tidak ingin diubah' : 'Minimal 6 karakter (default: Password123!)'}
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            helperText={editingMember ? 'Hanya isi jika ingin mereset password member ini.' : 'Password sementara untuk login member.'}
+          />
+
+          <Input
             label="Instansi / Asal Lembaga"
             required
             placeholder="SMK Telkom Malang / Universitas Brawijaya"
@@ -397,32 +492,53 @@ export default function AdminMembersPage() {
             error={formErrors.alamat}
           />
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Input
               label="URL Foto Profil"
               placeholder="https://..."
               value={formData.foto}
-              onChange={(e) => setFormData({ ...formData, foto: e.target.value })}
-              helperText="URL langsung atau upload file gambar di bawah."
+              onChange={(e) => {
+                setFormData({ ...formData, foto: e.target.value });
+                setPreviewUrl(e.target.value);
+              }}
+              helperText="URL langsung atau unggah berkas foto dari komputer di bawah."
             />
-            <div className="flex items-center gap-2 pt-1">
-              <label className="inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 px-3 py-1.5 rounded-lg cursor-pointer transition-colors">
-                <Upload className="w-3.5 h-3.5 text-[#c5a880]" />
-                <span>{uploadStatus === 'uploading' ? 'Mengunggah...' : 'Unggah Foto Member (Endpoint 50)'}</span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={uploadStatus === 'uploading'}
+            <div className="flex items-center gap-3 pt-1">
+              {/* Avatar Live Preview */}
+              <div className="relative w-14 h-14 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl || resolveMemberImage({ foto: formData.foto })}
+                  alt="Avatar preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    if (!img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
+                      img.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=60';
+                    }
+                  }}
                 />
-              </label>
-              {uploadStatus === 'done' && (
-                <span className="text-[11px] text-emerald-400 font-mono">✓ Berhasil diunggah</span>
-              )}
-              {uploadStatus === 'error' && (
-                <span className="text-[11px] text-rose-400 font-mono">⚠ Gagal mengunggah foto</span>
-              )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 px-3 py-1.5 rounded-lg cursor-pointer transition-colors w-fit">
+                  <Upload className="w-3.5 h-3.5 text-[#c5a880]" />
+                  <span>{uploadStatus === 'uploading' ? 'Mengunggah...' : 'Unggah Foto dari Komputer'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploadStatus === 'uploading'}
+                  />
+                </label>
+                {uploadStatus === 'done' && (
+                  <span className="text-[11px] text-emerald-400 font-mono">✓ Foto tersimpan & siap digunakan</span>
+                )}
+                {uploadStatus === 'error' && (
+                  <span className="text-[11px] text-rose-400 font-mono">⚠ Gagal mengunggah foto</span>
+                )}
+              </div>
             </div>
           </div>
 

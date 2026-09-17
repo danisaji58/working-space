@@ -7,7 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/Button';
 
 export function PublicNav() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, role, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const publicLinks = [
@@ -56,9 +56,9 @@ export function PublicNav() {
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 <span className="text-xs text-zinc-400 font-mono hidden lg:inline">
-                  Halo, <span className="text-zinc-200 font-medium">{user?.nama?.split(' ')[0] || 'Member'}</span>
+                  Halo, <span className="text-zinc-200 font-medium">{user?.nama?.split(' ')[0] || (role === 'admin_space' ? 'Admin' : 'Member')}</span>
                 </span>
-                <Link href="/member">
+                <Link href={role === 'admin_space' ? '/admin' : '/member'}>
                   <Button
                     size="sm"
                     variant="primary"
@@ -116,14 +116,17 @@ export function PublicNav() {
 
           <div className="pt-3 border-t border-zinc-800 flex flex-col gap-2">
             {isAuthenticated ? (
-              <Link href="/member" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link
+                href={role === 'admin_space' ? '/admin' : '/member'}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
                 <Button
                   variant="primary"
                   size="sm"
                   className="w-full"
                   leftIcon={<LayoutDashboard className="w-4 h-4" />}
                 >
-                  Buka Dashboard ({user?.nama?.split(' ')[0] || 'Member'})
+                  Buka Dashboard ({user?.nama?.split(' ')[0] || (role === 'admin_space' ? 'Admin' : 'Member')})
                 </Button>
               </Link>
             ) : (

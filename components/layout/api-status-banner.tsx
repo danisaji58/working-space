@@ -7,8 +7,10 @@ import { getApiBaseUrl, getMakerKey, isExplicitDemoMode, setExplicitDemoMode } f
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/context/auth-context';
 
 export function ApiStatusBanner() {
+  const { isAuthenticated, role } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
   const [makerKey, setMakerKey] = useState('');
@@ -192,7 +194,10 @@ export function ApiStatusBanner() {
                 Uji dan jalankan seluruh 50 endpoint UKK secara interaktif langsung dari Frontend.
               </p>
             </div>
-            <Link href="/admin/api-hub" onClick={() => setIsOpen(false)}>
+            <Link
+              href={isAuthenticated && role === 'admin_space' ? '/admin/api-hub' : '/login'}
+              onClick={() => setIsOpen(false)}
+            >
               <Button size="sm" variant="outline" className="text-xs shrink-0">
                 Buka Konsol
               </Button>

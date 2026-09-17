@@ -89,10 +89,10 @@ export default function AdminDiscountsPage() {
         if (res.status && res.data) {
           const fresh = res.data;
           setFormData({
-            nama_diskon: fresh.nama_diskon || d.nama_diskon,
-            persentase_diskon: fresh.persentase_diskon ?? d.persentase_diskon,
-            tanggal_awal: fresh.tanggal_awal ? fresh.tanggal_awal.split('T')[0] : d.tanggal_awal,
-            tanggal_akhir: fresh.tanggal_akhir ? fresh.tanggal_akhir.split('T')[0] : d.tanggal_akhir,
+            nama_diskon: fresh.nama_diskon || d.nama_diskon || '',
+            persentase_diskon: fresh.persentase_diskon ?? d.persentase_diskon ?? 0,
+            tanggal_awal: fresh.tanggal_awal ? fresh.tanggal_awal.split('T')[0] : (d.tanggal_awal ? d.tanggal_awal.split('T')[0] : ''),
+            tanggal_akhir: fresh.tanggal_akhir ? fresh.tanggal_akhir.split('T')[0] : (d.tanggal_akhir ? d.tanggal_akhir.split('T')[0] : ''),
           });
         }
       } catch {

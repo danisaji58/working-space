@@ -10,8 +10,31 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, helperText, leftIcon, rightIcon, id, ...props }, ref) => {
+  (
+    {
+      className,
+      label,
+      error,
+      helperText,
+      leftIcon,
+      rightIcon,
+      id,
+      value,
+      defaultValue,
+      onChange,
+      type,
+      ...props
+    },
+    ref
+  ) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+
+    // Determine if input is meant to be controlled.
+    // When controlled (or when onChange is provided), ensure value is never undefined
+    // to prevent React's "A component is changing an uncontrolled input to be controlled" warning.
+    const isFileInput = type === 'file';
+    const isControlled = !isFileInput && (onChange !== undefined || value !== undefined);
+    const resolvedValue = isFileInput ? undefined : isControlled ? (value ?? '') : undefined;
 
     return (
       <div className="w-full space-y-1.5">
@@ -30,6 +53,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             id={inputId}
             ref={ref}
+            type={type}
+            value={resolvedValue}
+            defaultValue={!isControlled ? defaultValue : undefined}
+            onChange={onChange}
             className={cn(
               'w-full rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 text-sm px-3.5 py-2.5 transition-colors duration-150 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500/30 disabled:opacity-50 disabled:cursor-not-allowed',
               leftIcon && 'pl-10',

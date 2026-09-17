@@ -132,27 +132,113 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80',
 ];
 
+export const FALLBACK_MEMBER_AVATARS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+];
+
+// Persistent local upload cache so user-uploaded local files never revert/disappear
+export function saveUploadedImageCache(type: 'spaces' | 'members', id: number | string, dataUrl: string): void {
+  if (typeof window === 'undefined' || !id || !dataUrl) return;
+  try {
+    const key = `ssb_cache_${type}_images`;
+    const stored = localStorage.getItem(key);
+    const parsed = stored ? JSON.parse(stored) : {};
+    parsed[String(id)] = dataUrl;
+    localStorage.setItem(key, JSON.stringify(parsed));
+  } catch {
+    // quota exceeded or SSR
+  }
+}
+
+export function getUploadedImageCache(type: 'spaces' | 'members', id: number | string): string | null {
+  if (typeof window === 'undefined' || !id) return null;
+  try {
+    const key = `ssb_cache_${type}_images`;
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return parsed[String(id)] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeUploadUrl(
+  urlOrFilename: string | undefined | null,
+  type: 'spaces' | 'members' | 'general' = 'spaces'
+): string {
+  if (!urlOrFilename) return '';
+  const raw = urlOrFilename.trim();
+  if (!raw) return '';
+
+  // 1. Data URLs (Base64) or Blob URLs — return directly
+  if (raw.startsWith('data:') || raw.startsWith('blob:')) {
+    return raw;
+  }
+
+  // 2. Fix official server upload URL bug (it omits /coworking/ and uses http)
+  if (raw.includes('learn.smktelkom-mlg.sch.id/uploads/')) {
+    return raw
+      .replace('http://', 'https://')
+      .replace('learn.smktelkom-mlg.sch.id/uploads/', 'learn.smktelkom-mlg.sch.id/coworking/uploads/');
+  }
+
+  // 3. Absolute URL (e.g. Unsplash or already valid https)
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return raw;
+  }
+
+  // 4. Relative paths
+  if (raw.startsWith('/coworking/uploads/')) {
+    return `https://learn.smktelkom-mlg.sch.id${raw}`;
+  }
+  if (raw.startsWith('/uploads/')) {
+    return `https://learn.smktelkom-mlg.sch.id/coworking${raw}`;
+  }
+
+  // 5. Raw filename from server (e.g. "1789652241876-613063422.png" or "meeting_alpha.jpg")
+  return `https://learn.smktelkom-mlg.sch.id/coworking/uploads/${type}/${raw}`;
+}
+
 export function resolveSpaceImage(
   space: { foto?: string; foto_url?: string; id?: number; id_space?: number } | null | undefined
 ): string {
   if (!space) return FALLBACK_IMAGES[0];
 
-  // 1. If foto_url is provided and is absolute URL
-  if (space.foto_url && (space.foto_url.startsWith('http://') || space.foto_url.startsWith('https://'))) {
-    return space.foto_url;
+  const targetId = space.id_space ?? space.id;
+  if (targetId) {
+    const cached = getUploadedImageCache('spaces', targetId);
+    if (cached) return cached;
   }
 
-  // 2. If foto is an absolute URL
-  if (space.foto && (space.foto.startsWith('http://') || space.foto.startsWith('https://'))) {
-    return space.foto;
+  const raw = space.foto_url || space.foto;
+  if (raw && raw.trim().length > 0) {
+    return normalizeUploadUrl(raw, 'spaces');
   }
 
-  // 3. If foto is a filename from the official server
-  if (space.foto && space.foto.trim().length > 0) {
-    const filename = space.foto.trim();
-    return `http://learn.smktelkom-mlg.sch.id/uploads/spaces/${filename}`;
-  }
-
-  const id = (space.id_space ?? space.id ?? 1) as number;
+  const id = (targetId ?? 1) as number;
   return FALLBACK_IMAGES[(Math.abs(id) - 1) % FALLBACK_IMAGES.length] || FALLBACK_IMAGES[0];
+}
+
+export function resolveMemberImage(
+  member: { foto?: string; foto_url?: string; id?: number; id_member?: number } | null | undefined
+): string {
+  if (!member) return FALLBACK_MEMBER_AVATARS[0];
+
+  const targetId = member.id_member ?? member.id;
+  if (targetId) {
+    const cached = getUploadedImageCache('members', targetId);
+    if (cached) return cached;
+  }
+
+  const raw = member.foto_url || member.foto;
+  if (raw && raw.trim().length > 0) {
+    return normalizeUploadUrl(raw, 'members');
+  }
+
+  const id = (targetId ?? 1) as number;
+  return FALLBACK_MEMBER_AVATARS[(Math.abs(id) - 1) % FALLBACK_MEMBER_AVATARS.length] || FALLBACK_MEMBER_AVATARS[0];
 }

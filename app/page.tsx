@@ -32,7 +32,7 @@ import { Space } from '@/types/api';
 import { formatIDR, getSpaceTypeLabel, resolveSpaceImage } from '@/lib/utils';
 
 export default function LandingPage() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, role } = useAuth();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedType, setSelectedType] = useState<string>('all');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -106,12 +106,12 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center gap-3 pt-2">
               {isAuthenticated ? (
                 <>
-                  <Link href="/member">
+                  <Link href={role === 'admin_space' ? '/admin' : '/member'}>
                     <Button size="lg" variant="primary" leftIcon={<LayoutDashboard className="w-4 h-4" />}>
-                      Buka Dashboard Member
+                      Buka Dashboard
                     </Button>
                   </Link>
-                  <Link href="/member/spaces">
+                  <Link href={role === 'admin_space' ? '/admin/spaces' : '/member/spaces'}>
                     <Button size="lg" variant="outline" rightIcon={<ArrowRight className="w-4 h-4" />}>
                       Jelajah Ruang
                     </Button>
@@ -119,14 +119,14 @@ export default function LandingPage() {
                 </>
               ) : (
                 <>
-                  <Link href="/member/spaces">
+                  <Link href="/login">
                     <Button size="lg" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                      Reservasi Ruang Sekarang
+                      Masuk untuk Reservasi
                     </Button>
                   </Link>
-                  <Link href="/login">
+                  <Link href="/#katalog">
                     <Button size="lg" variant="outline">
-                      Masuk ke Akun
+                      Lihat Koleksi Ruang
                     </Button>
                   </Link>
                 </>
@@ -245,9 +245,9 @@ export default function LandingPage() {
                       <span className="text-[10px] text-zinc-400">/jam</span>
                     </div>
 
-                    <Link href={`/member/spaces/${spaceId}`}>
-                      <Button size="sm" variant="outline">
-                        Pesan Ruang
+                    <Link href={isAuthenticated ? `/member/spaces/${spaceId}` : '/login'}>
+                      <Button size="sm" variant={isAuthenticated ? 'outline' : 'primary'}>
+                        {isAuthenticated ? 'Pesan Ruang' : 'Pesan (Login)'}
                       </Button>
                     </Link>
                   </div>
@@ -258,10 +258,14 @@ export default function LandingPage() {
 
           <div className="text-center pt-4">
             <Link
-              href="/member/spaces"
+              href={isAuthenticated ? '/member/spaces' : '/login'}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-xs font-mono text-zinc-300 hover:text-white transition-all"
             >
-              <span>Jelajahi Seluruh Koleksi Ruang di Katalog</span>
+              <span>
+                {isAuthenticated
+                  ? 'Jelajahi Seluruh Koleksi Ruang di Katalog'
+                  : 'Masuk Akun untuk Reservasi Ruang di Katalog'}
+              </span>
               <ChevronRight className="w-4 h-4 text-[#c5a880]" />
             </Link>
           </div>
@@ -524,9 +528,9 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-3 relative z-10">
-              <Link href="/member/spaces">
+              <Link href={isAuthenticated ? '/member/spaces' : '/login'}>
                 <Button size="lg" variant="primary" rightIcon={<Compass className="w-4 h-4" />}>
-                  Mulai Reservasi Ruang
+                  {isAuthenticated ? 'Mulai Reservasi Ruang' : 'Masuk untuk Reservasi'}
                 </Button>
               </Link>
               {!isAuthenticated && (
@@ -578,7 +582,7 @@ export default function LandingPage() {
                 <ul className="space-y-2 text-zinc-400">
                   <li><Link href="/login" className="hover:text-white transition-colors">Masuk Akun</Link></li>
                   <li><Link href="/register/member" className="hover:text-white transition-colors">Daftar Baru</Link></li>
-                  <li><Link href="/member/spaces" className="hover:text-white transition-colors">Katalog Ruang</Link></li>
+                  <li><Link href={isAuthenticated ? '/member/spaces' : '/login'} className="hover:text-white transition-colors">Katalog Ruang</Link></li>
                 </ul>
               </div>
 
