@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Code,
   CheckCircle2,
-  AlertCircle,
   Play,
   Key,
   ShieldCheck,
@@ -203,21 +202,19 @@ export default function ApiHubPage() {
         <div className="flex items-center bg-zinc-900 border border-zinc-800 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab('endpoints')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === 'endpoints'
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'endpoints'
                 ? 'bg-[#c5a880] text-zinc-950 font-semibold shadow'
                 : 'text-zinc-400 hover:text-white'
-            }`}
+              }`}
           >
             50 Endpoints (Live Console)
           </button>
           <button
             onClick={() => setActiveTab('maker')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === 'maker'
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'maker'
                 ? 'bg-[#c5a880] text-zinc-950 font-semibold shadow'
                 : 'text-zinc-400 hover:text-white'
-            }`}
+              }`}
           >
             Multi-Tenancy & Health
           </button>
@@ -293,11 +290,10 @@ export default function ApiHubPage() {
                   <div
                     key={ep.no}
                     onClick={() => setSelectedEndpoint(ep)}
-                    className={`p-2.5 rounded-xl border transition-all cursor-pointer text-xs space-y-1 ${
-                      isSelected
+                    className={`p-2.5 rounded-xl border transition-all cursor-pointer text-xs space-y-1 ${isSelected
                         ? 'bg-zinc-900 border-[#c5a880] shadow-md'
                         : 'bg-zinc-950/60 border-zinc-800/80 hover:bg-zinc-900/60 hover:border-zinc-700'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -395,11 +391,10 @@ export default function ApiHubPage() {
                     </label>
                     {executionStatus !== null && (
                       <span
-                        className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold ${
-                          executionStatus >= 200 && executionStatus < 300
+                        className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold ${executionStatus >= 200 && executionStatus < 300
                             ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                             : 'bg-rose-950 text-rose-300 border border-rose-800'
-                        }`}
+                          }`}
                       >
                         HTTP {executionStatus}
                       </span>

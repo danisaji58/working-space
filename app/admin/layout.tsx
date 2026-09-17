@@ -194,10 +194,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
           {children}
         </main>
-
-        <footer className="border-t border-zinc-900 bg-zinc-950 py-5 text-center text-xs text-zinc-400 font-mono">
-          Smart Space Booking • Admin Management Console • UKK SMK Telkom FE
-        </footer>
       </div>
     </div>
   );
