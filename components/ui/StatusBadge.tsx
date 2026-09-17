@@ -5,10 +5,9 @@ import { getStatusConfig, cn } from '@/lib/utils';
 export interface StatusBadgeProps {
   status: ReservationStatus;
   className?: string;
-  showDot?: boolean;
 }
 
-export function StatusBadge({ status, className, showDot = true }: StatusBadgeProps) {
+export function StatusBadge({ status, className,}: StatusBadgeProps) {
   const config = getStatusConfig(status);
 
   return (
@@ -19,9 +18,6 @@ export function StatusBadge({ status, className, showDot = true }: StatusBadgePr
         className
       )}
     >
-      {showDot && (
-        <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', config.dotClass)} />
-      )}
       <span>{config.label}</span>
     </span>
   );

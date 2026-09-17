@@ -595,10 +595,16 @@ export async function getAdminReservations(
       list = list.filter((r) => r.status === filters.status);
     }
     if (filters?.id_space && filters.id_space !== 'all') {
-      list = list.filter((r) => String(r.id_space) === String(filters.id_space));
+      list = list.filter((r) => {
+        const sid = r.id_space ?? r.space?.id_space ?? r.space?.id;
+        return String(sid) === String(filters.id_space);
+      });
     }
     if (filters?.tanggal) {
-      list = list.filter((r) => r.tanggal_reservasi === filters.tanggal);
+      list = list.filter((r) => {
+        const resDate = r.tanggal_reservasi?.split('T')[0] || r.tanggal_reservasi;
+        return resDate === filters.tanggal;
+      });
     }
     if (filters?.month && filters.month !== 'all') {
       list = list.filter((r) => {

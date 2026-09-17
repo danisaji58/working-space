@@ -103,9 +103,6 @@ export default function RegisterMemberPage() {
             <ArrowLeft className="w-4 h-4" />
             <span>Kembali ke Pilihan Akun</span>
           </Link>
-          <span className="text-[11px] font-mono text-[#c5a880] tracking-wider uppercase">
-            Formulir Member
-          </span>
         </div>
 
         {/* Title */}
