@@ -131,13 +131,23 @@ export async function checkSpaceAvailability(
 // Alias for backwards compatibility
 export const getSpaceAvailability = checkSpaceAvailability;
 
-// -------------------------------------------------------------
+let _cachedSpacesResponse: ApiResponse<Space[]> | null = null;
+let _lastSpacesCacheTime = 0;
+const SPACES_CACHE_TTL = 30000; // 30 detik
+
 // Endpoint 14: GET /api/spaces (Lihat Semua Space Coworking)
 // -------------------------------------------------------------
 export async function getSpaces(params?: {
   tipe?: SpaceType;
   search?: string;
 }): Promise<ApiResponse<Space[]>> {
+  const isDefaultQuery = (!params?.tipe || params.tipe === 'all') && !params?.search;
+
+  // Use memory cache for default list if fresh
+  if (isDefaultQuery && _cachedSpacesResponse && Date.now() - _lastSpacesCacheTime < SPACES_CACHE_TTL) {
+    return _cachedSpacesResponse;
+  }
+
   if (isExplicitDemoMode()) {
     let spaces = getLocalSpaces().map(normalizeSpace);
     if (params?.tipe && params.tipe !== 'all') {
@@ -170,10 +180,15 @@ export async function getSpaces(params?: {
 
   const res = await apiClient<Space[]>(`/api/spaces${queryString}`);
   if (res.status && Array.isArray(res.data)) {
-    return {
+    const normalizedResult: ApiResponse<Space[]> = {
       ...res,
       data: res.data.map(normalizeSpace),
     };
+    if (isDefaultQuery) {
+      _cachedSpacesResponse = normalizedResult;
+      _lastSpacesCacheTime = Date.now();
+    }
+    return normalizedResult;
   }
 
   return res;

@@ -34,16 +34,22 @@ import { formatIDR, getSpaceTypeLabel, resolveSpaceImage } from '@/lib/utils';
 export default function LandingPage() {
   const { isAuthenticated, user, role } = useAuth();
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [isLoadingSpaces, setIsLoadingSpaces] = useState<boolean>(true);
   const [selectedType, setSelectedType] = useState<string>('all');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
-    getSpaces().then((res) => {
-      if (res.status && res.data) {
-        setSpaces(res.data);
-      }
-    });
+    setIsLoadingSpaces(true);
+    getSpaces()
+      .then((res) => {
+        if (res.status && res.data) {
+          setSpaces(res.data);
+        }
+      })
+      .finally(() => {
+        setIsLoadingSpaces(false);
+      });
   }, []);
 
   const filteredSpaces = spaces.filter((s) => {
@@ -111,7 +117,7 @@ export default function LandingPage() {
                       Buka Dashboard
                     </Button>
                   </Link>
-                  <Link href={role === 'admin_space' ? '/admin/spaces' : '/member/spaces'}>
+                  <Link href={role === 'admin_space' ? '/admin/spaces' : '/spaces'}>
                     <Button size="lg" variant="outline" rightIcon={<ArrowRight className="w-4 h-4" />}>
                       Jelajah Ruang
                     </Button>
@@ -119,14 +125,14 @@ export default function LandingPage() {
                 </>
               ) : (
                 <>
-                  <Link href="/login">
+                  <Link href="/spaces">
                     <Button size="lg" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                      Masuk untuk Reservasi
+                      Jelajah Katalog Ruang
                     </Button>
                   </Link>
-                  <Link href="/#katalog">
+                  <Link href="/login">
                     <Button size="lg" variant="outline">
-                      Lihat Koleksi Ruang
+                      Masuk Akun
                     </Button>
                   </Link>
                 </>
@@ -192,80 +198,100 @@ export default function LandingPage() {
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {filteredSpaces.map((space) => {
-              const spaceId = space.id_space ?? space.id ?? 1;
-              return (
-                <div
-                  key={spaceId}
-                  className="card-luxury rounded-2xl overflow-hidden group flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Image container */}
-                    <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900">
-                      <Image
-                        src={resolveSpaceImage(space)}
-                        alt={space.nama_space}
-                        fill
-                        unoptimized
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
-                      />
-                      <div className="absolute top-3 left-3">
-                        <Badge variant="accent" size="sm">
-                          {getSpaceTypeLabel(space.tipe)}
-                        </Badge>
+          {isLoadingSpaces ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="card-luxury rounded-2xl overflow-hidden p-5 space-y-4 animate-pulse">
+                  <div className="aspect-[16/10] bg-zinc-800/60 rounded-xl" />
+                  <div className="h-5 bg-zinc-800/80 rounded w-3/4" />
+                  <div className="h-3 bg-zinc-800/50 rounded w-full" />
+                  <div className="h-3 bg-zinc-800/40 rounded w-2/3" />
+                  <div className="pt-3 border-t border-zinc-800/60 flex justify-between items-center">
+                    <div className="h-4 bg-zinc-800/70 rounded w-24" />
+                    <div className="h-8 bg-zinc-800/80 rounded-lg w-28" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredSpaces.length === 0 ? (
+            <div className="p-10 text-center rounded-2xl bg-zinc-900/40 border border-zinc-800 space-y-3">
+              <p className="text-xs text-zinc-400">Belum ada ruang pada kategori ini.</p>
+              <Link href="/spaces">
+                <Button size="sm" variant="outline">Lihat Semua di Katalog</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {filteredSpaces.map((space) => {
+                const spaceId = space.id_space ?? space.id ?? 1;
+                return (
+                  <div
+                    key={spaceId}
+                    className="card-luxury rounded-2xl overflow-hidden group flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Image container */}
+                      <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900">
+                        <Image
+                          src={resolveSpaceImage(space)}
+                          alt={space.nama_space}
+                          fill
+                          unoptimized
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                        />
+                        <div className="absolute top-3 left-3">
+                          <Badge variant="accent" size="sm">
+                            {getSpaceTypeLabel(space.tipe)}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="p-5 space-y-3">
-                      <h3 className="text-base font-semibold text-white tracking-tight group-hover:text-[#dfcbb5] transition-colors line-clamp-1">
-                        {space.nama_space}
-                      </h3>
+                      <div className="p-5 space-y-3">
+                        <h3 className="text-base font-semibold text-white tracking-tight group-hover:text-[#dfcbb5] transition-colors line-clamp-1">
+                          {space.nama_space}
+                        </h3>
 
-                      <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                        {space.deskripsi}
-                      </p>
+                        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                          {space.deskripsi}
+                        </p>
 
-                      <div className="flex items-center gap-4 text-xs text-zinc-400 pt-2 border-t border-zinc-800/60 font-mono">
-                        <div className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-zinc-400" />
-                          <span>Kapasitas {space.kapasitas} Orang</span>
+                        <div className="flex items-center gap-4 text-xs text-zinc-400 pt-2 border-t border-zinc-800/60 font-mono">
+                          <div className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-zinc-400" />
+                            <span>Kapasitas {space.kapasitas} Orang</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="p-5 pt-0 flex items-center justify-between border-t border-zinc-800/40 mt-2">
-                    <div>
-                      <span className="text-[10px] text-zinc-400 block font-mono">Tarif Sewa</span>
-                      <span className="text-sm font-bold text-white font-mono">
-                        {formatIDR(space.harga_per_jam)}
-                      </span>
-                      <span className="text-[10px] text-zinc-400">/jam</span>
+                    <div className="p-5 pt-0 flex items-center justify-between border-t border-zinc-800/40 mt-2">
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block font-mono">Tarif Sewa</span>
+                        <span className="text-sm font-bold text-white font-mono">
+                          {formatIDR(space.harga_per_jam)}
+                        </span>
+                        <span className="text-[10px] text-zinc-400">/jam</span>
+                      </div>
+
+                      <Link href={`/spaces/${spaceId}`}>
+                        <Button size="sm" variant="primary">
+                          Lihat Detail & Pesan
+                        </Button>
+                      </Link>
                     </div>
-
-                    <Link href={isAuthenticated ? `/member/spaces/${spaceId}` : '/login'}>
-                      <Button size="sm" variant={isAuthenticated ? 'outline' : 'primary'}>
-                        {isAuthenticated ? 'Pesan Ruang' : 'Pesan (Login)'}
-                      </Button>
-                    </Link>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="text-center pt-4">
             <Link
-              href={isAuthenticated ? '/member/spaces' : '/login'}
+              href="/spaces"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-xs font-mono text-zinc-300 hover:text-white transition-all"
             >
-              <span>
-                {isAuthenticated
-                  ? 'Jelajahi Seluruh Koleksi Ruang di Katalog'
-                  : 'Masuk Akun untuk Reservasi Ruang di Katalog'}
-              </span>
+              <span>Jelajahi Seluruh Koleksi Ruang di Katalog</span>
               <ChevronRight className="w-4 h-4 text-[#c5a880]" />
             </Link>
           </div>
@@ -434,10 +460,6 @@ export default function LandingPage() {
             
             <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
               <div className="space-y-3 text-center md:text-left max-w-lg">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#c5a880]/20 text-[#dfcbb5] text-xs font-mono">
-                  <Sparkles className="w-3.5 h-3.5 text-[#c5a880]" />
-                  <span>Promo Member Baru</span>
-                </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                   Nikmati Diskon 20% untuk Reservasi Pertama Anda
                 </h2>
@@ -457,7 +479,7 @@ export default function LandingPage() {
                     {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : 'Salin'}
                   </button>
                 </div>
-                <Link href="/member/spaces">
+                <Link href="/spaces">
                   <Button size="md" variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
                     Gunakan Kupon Sekarang
                   </Button>
@@ -528,9 +550,9 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-3 relative z-10">
-              <Link href={isAuthenticated ? '/member/spaces' : '/login'}>
+              <Link href="/spaces">
                 <Button size="lg" variant="primary" rightIcon={<Compass className="w-4 h-4" />}>
-                  {isAuthenticated ? 'Mulai Reservasi Ruang' : 'Masuk untuk Reservasi'}
+                  {isAuthenticated ? 'Mulai Reservasi Ruang' : 'Jelajahi Katalog Ruang'}
                 </Button>
               </Link>
               {!isAuthenticated && (
@@ -582,7 +604,7 @@ export default function LandingPage() {
                 <ul className="space-y-2 text-zinc-400">
                   <li><Link href="/login" className="hover:text-white transition-colors">Masuk Akun</Link></li>
                   <li><Link href="/register/member" className="hover:text-white transition-colors">Daftar Baru</Link></li>
-                  <li><Link href={isAuthenticated ? '/member/spaces' : '/login'} className="hover:text-white transition-colors">Katalog Ruang</Link></li>
+                  <li><Link href="/spaces" className="hover:text-white transition-colors">Katalog Ruang</Link></li>
                 </ul>
               </div>
 
