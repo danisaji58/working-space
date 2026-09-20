@@ -18,7 +18,15 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
+  Upload,
 } from 'lucide-react';
+import { uploadMemberImage } from '@/lib/api/admin';
+import {
+  normalizeUploadUrl,
+  saveUploadedImageCache,
+  compressImage,
+} from '@/lib/utils';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 import {
   scaleIn,
   fadeInUp,
@@ -27,7 +35,7 @@ import {
 
 export default function RegisterMemberPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, updateUser } = useAuth();
 
   const [formData, setFormData] = useState({
     nama_member: '',
@@ -43,6 +51,9 @@ export default function RegisterMemberPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -62,6 +73,25 @@ export default function RegisterMemberPage() {
     return Object.keys(errs).length === 0;
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadStatus('uploading');
+
+    try {
+      // Compress image client-side to ensure small footprint (~30-50KB) and instant rendering
+      const { file: compressedFile, base64 } = await compressImage(file, 500, 500, 0.85);
+      setSelectedFile(compressedFile);
+      setPreviewUrl(base64);
+      setUploadStatus('done');
+    } catch {
+      setUploadStatus('error');
+    }
+
+    e.target.value = '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -70,17 +100,46 @@ export default function RegisterMemberPage() {
     setIsLoading(true);
 
     try {
+      // Clean JSON payload for /api/auth/register/member:
+      // Exclude heavy base64 strings from JSON body to avoid HTTP 413 (request entity too large)
+      const { foto, ...cleanFormData } = formData;
+      const cleanFoto = foto && !foto.startsWith('data:') ? foto.trim() : '';
+
       const payload = {
-        ...formData,
-        foto: formData.foto || '',
+        ...cleanFormData,
+        ...(cleanFoto ? { foto: cleanFoto } : {}),
       };
 
       const res = await registerMember(payload);
 
       if (res.status) {
         setIsSuccess(true);
-        // Auto-login newly registered member
+        // Auto-login newly registered member to obtain JWT token
         await login({ username: formData.username, password: formData.password });
+
+        // If member selected or uploaded a photo file, upload via multipart/form-data
+        const finalPhoto = previewUrl || cleanFoto;
+        if (finalPhoto) {
+          let photoUrl = finalPhoto;
+          if (selectedFile) {
+            try {
+              const upRes = await uploadMemberImage(selectedFile);
+              if (upRes.status && upRes.data) {
+                const sUrl = upRes.data.url || upRes.data.filename;
+                photoUrl = normalizeUploadUrl(sUrl, 'members');
+              }
+            } catch {
+              // fallback to compressed base64
+            }
+          }
+
+          updateUser({ foto: photoUrl });
+          const newMemberId = res.data?.id_member || res.data?.id;
+          if (newMemberId) {
+            saveUploadedImageCache('members', newMemberId, photoUrl);
+          }
+        }
+
         setTimeout(() => {
           router.push('/member');
         }, 1200);
@@ -223,10 +282,60 @@ export default function RegisterMemberPage() {
                     label="Foto Profil (URL)"
                     placeholder="https://..."
                     value={formData.foto}
-                    onChange={(e) => setFormData({ ...formData, foto: e.target.value })}
-                    helperText="Opsional. Kosongkan untuk avatar default."
+                    onChange={(e) => {
+                      setFormData({ ...formData, foto: e.target.value });
+                      setPreviewUrl(e.target.value);
+                    }}
+                    helperText="Opsional. Tempel URL foto atau unggah berkas dari komputer."
                     leftIcon={<ImageIcon className="w-4 h-4" />}
                   />
+                </div>
+
+                {/* Avatar Preview & Upload Area */}
+                <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center gap-4">
+                  <UserAvatar
+                    src={previewUrl || formData.foto}
+                    name={formData.nama_member || 'Member'}
+                    size="lg"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="text-xs font-semibold text-zinc-200">
+                      Foto Profil Member
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 px-3 py-1.5 rounded-lg cursor-pointer transition-colors w-fit">
+                        <Upload className="w-3.5 h-3.5 text-[#c5a880]" />
+                        <span>{uploadStatus === 'uploading' ? 'Memproses...' : 'Unggah Foto dari Komputer'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          disabled={uploadStatus === 'uploading'}
+                        />
+                      </label>
+                      {(previewUrl || formData.foto) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, foto: '' }));
+                            setPreviewUrl('');
+                            setSelectedFile(null);
+                            setUploadStatus('idle');
+                          }}
+                          className="text-xs text-zinc-400 hover:text-rose-400 transition-colors"
+                        >
+                          Hapus Foto
+                        </button>
+                      )}
+                    </div>
+                    {uploadStatus === 'done' && (
+                      <span className="text-[11px] text-emerald-400 font-mono block">✓ Foto tersimpan & siap digunakan</span>
+                    )}
+                    {uploadStatus === 'error' && (
+                      <span className="text-[11px] text-rose-400 font-mono block">⚠ Gagal membaca berkas foto</span>
+                    )}
+                  </div>
                 </div>
 
                 <Textarea

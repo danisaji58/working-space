@@ -306,3 +306,80 @@ export function resolveMemberImage(
   return getInitialsAvatarSvg(name, targetId);
 }
 
+export async function compressImage(
+  file: File,
+  maxWidth: number = 600,
+  maxHeight: number = 600,
+  quality: number = 0.85
+): Promise<{ file: File; base64: string }> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ file, base64: (reader.result as string) || '' });
+      reader.onerror = () => resolve({ file, base64: '' });
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+
+      if (width > maxWidth || height > maxHeight) {
+        if (width > height) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ file, base64: (reader.result as string) || '' });
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve({ file, base64: canvas.toDataURL('image/jpeg', quality) });
+            return;
+          }
+
+          const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '') + '.jpg', {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+
+          const base64 = canvas.toDataURL('image/jpeg', quality);
+          resolve({ file: compressedFile, base64 });
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => resolve({ file, base64: (reader.result as string) || '' });
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
+  });
+}
+
