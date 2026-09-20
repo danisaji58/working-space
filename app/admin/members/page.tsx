@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Modal } from '@/components/ui/Modal';
 import { LoadingSkeleton, EmptyState } from '@/components/ui/EmptyState';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 export default function AdminMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -87,7 +88,7 @@ export default function AdminMembersPage() {
     setEditingMember(null);
     setUploadStatus('idle');
     setSubmitError(null);
-    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+    const defaultAvatar = '';
     setFormData({
       nama_member: '',
       username: '',
@@ -357,20 +358,12 @@ export default function AdminMembersPage() {
                   >
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                          <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={resolveMemberImage(member)}
-                              alt={member.nama_member}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const img = e.target as HTMLImageElement;
-                                if (!img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
-                                  img.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=60';
-                                }
-                              }}
-                            />
-                          </div>
+                        <UserAvatar
+                          src={member.foto}
+                          name={member.nama_member}
+                          id={member.id_member || member.id}
+                          size="md"
+                        />
                         <div>
                           <div className="font-semibold text-white">
                             {member.nama_member}
@@ -505,20 +498,11 @@ export default function AdminMembersPage() {
             />
             <div className="flex items-center gap-3 pt-1">
               {/* Avatar Live Preview */}
-              <div className="relative w-14 h-14 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl || resolveMemberImage({ foto: formData.foto })}
-                  alt="Avatar preview"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const img = e.target as HTMLImageElement;
-                    if (!img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
-                      img.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=60';
-                    }
-                  }}
-                />
-              </div>
+              <UserAvatar
+                src={previewUrl || formData.foto}
+                name={formData.nama_member || 'Member'}
+                size="lg"
+              />
 
               <div className="flex flex-col gap-1.5">
                 <label className="inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 px-3 py-1.5 rounded-lg cursor-pointer transition-colors w-fit">

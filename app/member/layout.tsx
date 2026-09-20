@@ -8,7 +8,9 @@ import { PublicNav } from '@/components/layout/public-nav';
 import { ForbiddenView } from '@/components/auth/ForbiddenView';
 
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuth();
+  const isPublicCatalog = pathname?.startsWith('/member/spaces');
 
   // Smooth loading state to prevent flash of forbidden content
   if (isLoading) {
@@ -25,9 +27,6 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
       </div>
     );
   }
-
-  const pathname = usePathname();
-  const isPublicCatalog = pathname?.startsWith('/member/spaces');
 
   // If user is guest/unauthenticated, allow /member/spaces with PublicNav or block other member routes
   if (!isAuthenticated) {

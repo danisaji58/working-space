@@ -69,6 +69,12 @@ export function MemberNav() {
     .join('')
     .toUpperCase();
 
+  const hasValidCustomPhoto = Boolean(
+    user?.foto &&
+    !user.foto.includes('images.unsplash.com/photo-') &&
+    !avatarLoadError
+  );
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -131,9 +137,9 @@ export function MemberNav() {
                 >
                   {/* User Avatar */}
                   <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-[11px] font-mono font-bold text-zinc-200">
-                    {user?.foto && !avatarLoadError ? (
+                    {hasValidCustomPhoto ? (
                       <Image
-                        src={normalizeUploadUrl(user.foto, 'members')}
+                        src={normalizeUploadUrl(user?.foto, 'members')}
                         alt={user?.nama || 'User'}
                         fill
                         unoptimized
@@ -170,9 +176,9 @@ export function MemberNav() {
                     <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60 mb-2 space-y-1">
                       <div className="flex items-center gap-2.5">
                         <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-mono text-xs font-bold text-[#c5a880] shrink-0">
-                          {user?.foto && !avatarLoadError ? (
+                          {hasValidCustomPhoto ? (
                             <Image
-                              src={normalizeUploadUrl(user.foto, 'members')}
+                              src={normalizeUploadUrl(user?.foto, 'members')}
                               alt={user?.nama || 'User'}
                               fill
                               unoptimized
@@ -300,9 +306,9 @@ export function MemberNav() {
           {isAuthenticated && (
             <div className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-3">
               <div className="relative w-10 h-10 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-xs font-bold text-zinc-200 shrink-0">
-                {user?.foto ? (
+                {hasValidCustomPhoto ? (
                   <Image
-                    src={normalizeUploadUrl(user.foto, 'members')}
+                    src={normalizeUploadUrl(user?.foto, 'members')}
                     alt={user?.nama || 'User'}
                     fill
                     unoptimized

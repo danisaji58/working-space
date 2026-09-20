@@ -132,12 +132,60 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80',
 ];
 
-export const FALLBACK_MEMBER_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+export function getInitials(name?: string): string {
+  if (!name || !name.trim()) return 'M';
+  const clean = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+  if (!clean) return 'M';
+  const rawParts = clean.split(/\s+/).filter(Boolean);
+  const alphaParts = rawParts.filter((p) => /[a-zA-Z]/.test(p));
+  const parts = alphaParts.length > 0 ? alphaParts : rawParts;
+
+  if (parts.length === 1) {
+    return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
+  }
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+export const AVATAR_PALETTES = [
+  { bg: '#2563eb', text: '#ffffff' }, // Blue
+  { bg: '#7c3aed', text: '#ffffff' }, // Purple
+  { bg: '#059669', text: '#ffffff' }, // Emerald
+  { bg: '#d97706', text: '#ffffff' }, // Amber
+  { bg: '#e11d48', text: '#ffffff' }, // Rose
+  { bg: '#0891b2', text: '#ffffff' }, // Cyan
+  { bg: '#4f46e5', text: '#ffffff' }, // Indigo
+  { bg: '#c026d3', text: '#ffffff' }, // Fuchsia
+  { bg: '#ea580c', text: '#ffffff' }, // Orange
+  { bg: '#0d9488', text: '#ffffff' }, // Teal
 ];
+
+export function getInitialsAvatarSvg(name?: string, id?: number | string): string {
+  const initials = getInitials(name);
+  let index = 0;
+  if (typeof id === 'number' && !isNaN(id)) {
+    index = Math.abs(id) % AVATAR_PALETTES.length;
+  } else if (name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    index = Math.abs(hash) % AVATAR_PALETTES.length;
+  }
+  const { bg, text } = AVATAR_PALETTES[index];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <rect width="100" height="100" fill="${bg}" rx="50"/>
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="${text}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="38" letter-spacing="1">
+    ${initials}
+  </text>
+</svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export const FALLBACK_MEMBER_AVATARS = AVATAR_PALETTES.map((_, i) =>
+  getInitialsAvatarSvg('Member', i + 1)
+);
 
 // Persistent local upload cache so user-uploaded local files never revert/disappear
 export function saveUploadedImageCache(type: 'spaces' | 'members', id: number | string, dataUrl: string): void {
@@ -224,11 +272,23 @@ export function resolveSpaceImage(
 }
 
 export function resolveMemberImage(
-  member: { foto?: string; foto_url?: string; id?: number; id_member?: number } | null | undefined
+  member: {
+    foto?: string;
+    foto_url?: string;
+    id?: number;
+    id_member?: number;
+    nama?: string;
+    nama_member?: string;
+    username?: string;
+  } | null | undefined
 ): string {
-  if (!member) return FALLBACK_MEMBER_AVATARS[0];
+  const name = member?.nama_member || member?.nama || member?.username || 'Member';
+  const targetId = member?.id_member ?? member?.id;
 
-  const targetId = member.id_member ?? member.id;
+  if (!member) {
+    return getInitialsAvatarSvg('Member', 1);
+  }
+
   if (targetId) {
     const cached = getUploadedImageCache('members', targetId);
     if (cached) return cached;
@@ -236,9 +296,13 @@ export function resolveMemberImage(
 
   const raw = member.foto_url || member.foto;
   if (raw && raw.trim().length > 0) {
-    return normalizeUploadUrl(raw, 'members');
+    // If the image is an Unsplash stock avatar, treat as no custom photo and use initials!
+    const isUnsplashStock = raw.includes('images.unsplash.com/photo-');
+    if (!isUnsplashStock) {
+      return normalizeUploadUrl(raw, 'members');
+    }
   }
 
-  const id = (targetId ?? 1) as number;
-  return FALLBACK_MEMBER_AVATARS[(Math.abs(id) - 1) % FALLBACK_MEMBER_AVATARS.length] || FALLBACK_MEMBER_AVATARS[0];
+  return getInitialsAvatarSvg(name, targetId);
 }
+

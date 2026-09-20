@@ -104,7 +104,7 @@ export const INITIAL_MEMBERS: Member[] = [
     instansi: 'SMK Telkom Malang (RPL)',
     alamat: 'Jl. Danau Ranau G7 B-12, Sawojajar, Malang',
     telp: '081234567890',
-    foto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    foto: '',
     created_at: '2026-02-10',
   },
   {
@@ -114,7 +114,7 @@ export const INITIAL_MEMBERS: Member[] = [
     instansi: 'Universitas Brawijaya',
     alamat: 'Jl. Veteran No. 18, Malang',
     telp: '085712348901',
-    foto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
+    foto: '',
     created_at: '2026-02-15',
   },
   {
@@ -124,7 +124,7 @@ export const INITIAL_MEMBERS: Member[] = [
     instansi: 'Nusantara Digital Studio',
     alamat: 'Jl. Soekarno Hatta No. 45, Malang',
     telp: '082198765432',
-    foto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+    foto: '',
     created_at: '2026-03-01',
   },
 ];

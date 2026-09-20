@@ -225,11 +225,17 @@ export async function createAdminMember(
   });
 
   if (res.status && res.data) {
+    const rawData = res.data as unknown as { id?: number; username?: string; member?: Partial<Member> };
+    const memberObj = rawData.member || res.data;
     // Preserve uploaded photo if server response doesn't echo it
     const memberWithFoto: Member = {
-      ...res.data,
-      foto: res.data.foto || finalPayload.foto,
-    };
+      ...memberObj,
+      id: memberObj.id ?? rawData.id,
+      id_member: memberObj.id ?? rawData.id,
+      id_user: rawData.id ?? (memberObj as { id_user?: number }).id_user,
+      username: rawData.username || (memberObj as { username?: string }).username || (finalPayload as { username?: string }).username,
+      foto: memberObj.foto || finalPayload.foto,
+    } as Member;
     saveLocalMember(memberWithFoto);
     const mid = memberWithFoto.id_member || memberWithFoto.id;
     if (mid && memberWithFoto.foto) {

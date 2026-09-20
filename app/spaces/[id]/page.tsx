@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
   Clock,
@@ -32,6 +33,13 @@ import { Badge } from '@/components/ui/Badge';
 import { LoadingSkeleton } from '@/components/ui/EmptyState';
 import { PublicNav } from '@/components/layout/public-nav';
 import { MemberNav } from '@/components/layout/member-nav';
+import {
+  fadeInUp,
+  staggerContainer,
+  staggerContainerFast,
+  scaleIn,
+  alertSlideDown,
+} from '@/components/ui/motion-variants';
 
 export default function PublicSpaceDetailPage() {
   const params = useParams();
@@ -243,29 +251,34 @@ export default function PublicSpaceDetailPage() {
       {/* Adaptive Header */}
       {isAuthenticated ? <MemberNav /> : <PublicNav />}
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <motion.main
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
+      >
         {/* Breadcrumb & Navigation */}
-        <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
+        <motion.div variants={fadeInUp} className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
           <Link href="/spaces" className="hover:text-white transition-colors flex items-center gap-1.5">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Katalog Ruang</span>
           </Link>
           <span>/</span>
           <span className="text-zinc-200 truncate max-w-xs">{space.nama_space}</span>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Photo Showcase & Room Features */}
-          <div className="lg:col-span-7 space-y-6">
+          <motion.div variants={fadeInUp} className="lg:col-span-7 space-y-6">
             {/* Main Picture Frame */}
-            <div className="relative aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800">
+            <div className="relative aspect-16/10 sm:aspect-video rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 group shadow-lg">
               <Image
                 src={resolveSpaceImage(space)}
                 alt={space.nama_space}
                 fill
                 unoptimized
                 sizes="(max-width: 1024px) 100vw, 60vw"
-                className="object-cover"
+                className="object-cover group-hover:scale-105 transition-transform duration-700"
                 priority
               />
               <div className="absolute top-4 left-4 flex gap-2">
@@ -318,7 +331,12 @@ export default function PublicSpaceDetailPage() {
                 <span>Fasilitas & Kelengkapan Termasuk</span>
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <motion.div
+                variants={staggerContainerFast}
+                initial="hidden"
+                animate="visible"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              >
                 {(space.fasilitas && space.fasilitas.length > 0
                   ? space.fasilitas
                   : [
@@ -330,20 +348,30 @@ export default function PublicSpaceDetailPage() {
                       'Akses Keycard Digital',
                     ]
                 ).map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-zinc-300">
+                  <motion.div
+                    key={i}
+                    variants={fadeInUp}
+                    whileHover={{ x: 4, transition: { duration: 0.15 } }}
+                    className="flex items-center gap-2 text-xs text-zinc-300 p-1.5 rounded-lg hover:bg-zinc-800/40 transition-colors"
+                  >
                     <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[#c5a880] shrink-0">
                       <Check className="w-3 h-3" />
                     </div>
                     <span>{f}</span>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Column: Interactive Reservation Sheet */}
           <div className="lg:col-span-5">
-            <div className="card-luxury p-6 sm:p-7 rounded-2xl sticky top-24 space-y-5">
+            <motion.div
+              variants={scaleIn}
+              initial="hidden"
+              animate="visible"
+              className="card-luxury p-6 sm:p-7 rounded-2xl sticky top-24 space-y-5 shadow-2xl"
+            >
               <div className="flex items-start justify-between gap-2 pb-4 border-b border-zinc-800">
                 <div>
                   <span className="text-[10px] uppercase font-mono text-zinc-400 block">
@@ -365,216 +393,267 @@ export default function PublicSpaceDetailPage() {
                 </div>
               </div>
 
-              {submitSuccess ? (
-                <div className="p-6 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-center space-y-3 animate-in fade-in">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
-                  <h3 className="text-sm font-bold text-white">Reservasi Berhasil!</h3>
-                  <p className="text-xs text-zinc-300">
-                    ID Reservasi: <span className="font-mono text-white">#{submitSuccess}</span>.
-                    Mengalihkan ke E-Ticket...
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleBooking} className="space-y-4">
-                  {formErrors.submit && (
-                    <div className="p-3.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 space-y-2">
-                      <div>{formErrors.submit}</div>
-                    </div>
-                  )}
+              <AnimatePresence mode="wait">
+                {submitSuccess ? (
+                  <motion.div
+                    key="success"
+                    variants={scaleIn}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className="p-6 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-center space-y-3"
+                  >
+                    <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
+                    <h3 className="text-sm font-bold text-white">Reservasi Berhasil!</h3>
+                    <p className="text-xs text-zinc-300">
+                      ID Reservasi: <span className="font-mono text-white">#{submitSuccess}</span>.
+                      Mengalihkan ke E-Ticket...
+                    </p>
+                  </motion.div>
+                ) : (
+                  <form key="form" onSubmit={handleBooking} className="space-y-4">
+                    {formErrors.submit && (
+                      <motion.div
+                        variants={alertSlideDown}
+                        initial="hidden"
+                        animate="visible"
+                        className="p-3.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 space-y-2"
+                      >
+                        <div>{formErrors.submit}</div>
+                      </motion.div>
+                    )}
 
-                  {!isAuthenticated && (
-                    <div className="p-3 rounded-xl bg-[#c5a880]/10 border border-[#c5a880]/25 text-xs text-[#dfcbb5] flex items-start gap-2.5">
-                      <LogIn className="w-4 h-4 text-[#c5a880] shrink-0 mt-0.5" />
-                      <div className="leading-relaxed">
-                        <span className="font-semibold text-white">Ingin memesan ruang ini?</span> Anda dapat menentukan jadwal & cek ketersediaan sekarang. Anda akan diarahkan login saat konfirmasi pemesanan.
-                      </div>
-                    </div>
-                  )}
+                    {!isAuthenticated && (
+                      <motion.div
+                        variants={fadeInUp}
+                        className="p-3 rounded-xl bg-[#c5a880]/10 border border-[#c5a880]/25 text-xs text-[#dfcbb5] flex items-start gap-2.5"
+                      >
+                        <LogIn className="w-4 h-4 text-[#c5a880] shrink-0 mt-0.5" />
+                        <div className="leading-relaxed">
+                          <span className="font-semibold text-white">Ingin memesan ruang ini?</span> Anda dapat menentukan jadwal & cek ketersediaan sekarang. Anda akan diarahkan login saat konfirmasi pemesanan.
+                        </div>
+                      </motion.div>
+                    )}
 
-                  {/* Reservation Date */}
-                  <Input
-                    label="Tanggal Reservasi"
-                    type="date"
-                    min={todayStr}
-                    required
-                    value={tanggal}
-                    onChange={(e) => setTanggal(e.target.value)}
-                    error={formErrors.tanggal}
-                    leftIcon={<Calendar className="w-4 h-4" />}
-                  />
-
-                  {/* Start Time & Duration */}
-                  <div className="grid grid-cols-2 gap-3">
+                    {/* Reservation Date */}
                     <Input
-                      label="Jam Mulai"
-                      type="time"
+                      label="Tanggal Reservasi"
+                      type="date"
+                      min={todayStr}
                       required
-                      value={jamMulai}
-                      onChange={(e) => setJamMulai(e.target.value)}
-                      error={formErrors.jamMulai}
-                      leftIcon={<Clock className="w-4 h-4" />}
+                      value={tanggal}
+                      onChange={(e) => setTanggal(e.target.value)}
+                      error={formErrors.tanggal}
+                      leftIcon={<Calendar className="w-4 h-4" />}
                     />
 
-                    <div className="space-y-1.5">
+                    {/* Start Time & Duration */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Jam Mulai"
+                        type="time"
+                        required
+                        value={jamMulai}
+                        onChange={(e) => setJamMulai(e.target.value)}
+                        error={formErrors.jamMulai}
+                        leftIcon={<Clock className="w-4 h-4" />}
+                      />
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-zinc-300">
+                          Durasi (Jam) <span className="text-rose-400">*</span>
+                        </label>
+                        <select
+                          value={durasiJam}
+                          onChange={(e) => setDurasiJam(Number(e.target.value))}
+                          className="w-full rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-100 text-sm px-3.5 py-2.5 focus:outline-none focus:border-zinc-500"
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                            <option key={num} value={num}>
+                              {num} Jam
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Schedule Summary Banner */}
+                    <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800/80 text-[11px] font-mono text-zinc-300 flex items-center justify-between">
+                      <span>Waktu Selesai:</span>
+                      <span className="text-white font-semibold">{jamSelesai} WIB</span>
+                    </div>
+
+                    {/* Live Space Availability Verification (Endpoint 13) */}
+                    <div className="p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-300 font-medium flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-[#c5a880]" />
+                          Status Slot (Live API)
+                        </span>
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleCheckAvailability}
+                          disabled={availabilityStatus.status === 'checking'}
+                          className="text-[11px] font-mono text-[#c5a880] hover:text-[#d4be9d] underline cursor-pointer disabled:opacity-50"
+                        >
+                          {availabilityStatus.status === 'checking' ? 'Mengecek...' : 'Cek Ketersediaan'}
+                        </motion.button>
+                      </div>
+
+                      <AnimatePresence>
+                        {availabilityStatus.status === 'available' && (
+                          <motion.div
+                            variants={alertSlideDown}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className="p-2 rounded-lg bg-emerald-950/30 border border-emerald-800/50 text-[11px] text-emerald-300 flex items-center gap-2"
+                          >
+                            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                            <span>{availabilityStatus.message}</span>
+                          </motion.div>
+                        )}
+
+                        {availabilityStatus.status === 'unavailable' && (
+                          <motion.div
+                            variants={alertSlideDown}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className="p-2 rounded-lg bg-rose-950/30 border border-rose-800/50 text-[11px] text-rose-300 flex items-center gap-2"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                            <span>{availabilityStatus.message}</span>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Promo Code Verification */}
+                    <div className="space-y-1.5 pt-1">
                       <label className="block text-xs font-medium text-zinc-300">
-                        Durasi (Jam) <span className="text-rose-400">*</span>
+                        Kode Kupon / Diskon (Opsional)
                       </label>
-                      <select
-                        value={durasiJam}
-                        onChange={(e) => setDurasiJam(Number(e.target.value))}
-                        className="w-full rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-100 text-sm px-3.5 py-2.5 focus:outline-none focus:border-zinc-500"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
-                          <option key={num} value={num}>
-                            {num} Jam
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
 
-                  {/* Schedule Summary Banner */}
-                  <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800/80 text-[11px] font-mono text-zinc-300 flex items-center justify-between">
-                    <span>Waktu Selesai:</span>
-                    <span className="text-white font-semibold">{jamSelesai} WIB</span>
-                  </div>
-
-                  {/* Live Space Availability Verification (Endpoint 13) */}
-                  <div className="p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-300 font-medium flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-[#c5a880]" />
-                        Status Slot (Live API)
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleCheckAvailability}
-                        disabled={availabilityStatus.status === 'checking'}
-                        className="text-[11px] font-mono text-[#c5a880] hover:text-[#d4be9d] underline cursor-pointer disabled:opacity-50"
-                      >
-                        {availabilityStatus.status === 'checking' ? 'Mengecek...' : 'Cek Ketersediaan'}
-                      </button>
-                    </div>
-
-                    {availabilityStatus.status === 'available' && (
-                      <div className="p-2 rounded-lg bg-emerald-950/30 border border-emerald-800/50 text-[11px] text-emerald-300 flex items-center gap-2 animate-in fade-in">
-                        <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                        <span>{availabilityStatus.message}</span>
-                      </div>
-                    )}
-
-                    {availabilityStatus.status === 'unavailable' && (
-                      <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-800/50 text-[11px] text-rose-300 flex items-center gap-2 animate-in fade-in">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
-                        <span>{availabilityStatus.message}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Promo Code Verification */}
-                  <div className="space-y-1.5 pt-1">
-                    <label className="block text-xs font-medium text-zinc-300">
-                      Kode Kupon / Diskon (Opsional)
-                    </label>
-
-                    {appliedDiscount ? (
-                      <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/50 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs font-mono text-emerald-300">
-                          <Tag className="w-3.5 h-3.5" />
-                          <span>
-                            {appliedDiscount.nama_diskon} (-{appliedDiscount.persentase_diskon}%)
-                          </span>
+                      {appliedDiscount ? (
+                        <motion.div
+                          variants={scaleIn}
+                          initial="hidden"
+                          animate="visible"
+                          className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/50 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2 text-xs font-mono text-emerald-300">
+                            <Tag className="w-3.5 h-3.5" />
+                            <span>
+                              {appliedDiscount.nama_diskon} (-{appliedDiscount.persentase_diskon}%)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAppliedDiscount(null);
+                              setPromoCodeInput('');
+                              setDiscountStatus({ status: 'idle' });
+                            }}
+                            className="text-[10px] text-zinc-400 hover:text-zinc-200 underline cursor-pointer"
+                          >
+                            Hapus
+                          </button>
+                        </motion.div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Contoh: DISKONHEMAT20"
+                            value={promoCodeInput}
+                            onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                            className="flex-1 px-3 py-2 text-xs rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-[#c5a880] font-mono uppercase"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleCheckPromo}
+                            isLoading={discountStatus.status === 'checking'}
+                          >
+                            Terapkan
+                          </Button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAppliedDiscount(null);
-                            setPromoCodeInput('');
-                            setDiscountStatus({ status: 'idle' });
-                          }}
-                          className="text-[10px] text-zinc-400 hover:text-zinc-200 underline cursor-pointer"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Contoh: DISKONHEMAT20"
-                          value={promoCodeInput}
-                          onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
-                          className="flex-1 px-3 py-2 text-xs rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 font-mono uppercase"
-                        />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={handleCheckPromo}
-                          isLoading={discountStatus.status === 'checking'}
-                        >
-                          Terapkan
-                        </Button>
-                      </div>
-                    )}
+                      )}
 
-                    {discountStatus.message && (
-                      <p
-                        className={`text-[11px] ${
-                          discountStatus.status === 'valid'
-                            ? 'text-emerald-400'
-                            : discountStatus.status === 'invalid'
-                            ? 'text-rose-400'
-                            : 'text-zinc-400'
-                        }`}
+                      <AnimatePresence>
+                        {discountStatus.message && (
+                          <motion.p
+                            variants={alertSlideDown}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className={`text-[11px] ${
+                              discountStatus.status === 'valid'
+                                ? 'text-emerald-400'
+                                : discountStatus.status === 'invalid'
+                                ? 'text-rose-400'
+                                : 'text-zinc-400'
+                            }`}
+                          >
+                            {discountStatus.message}
+                          </motion.p>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Live Price Breakdown */}
+                    <div className="pt-3 border-t border-zinc-800/80 space-y-2 text-xs">
+                      <div className="flex items-center justify-between text-zinc-400">
+                        <span>
+                          {formatIDR(hourlyPrice)} × {durasiJam} Jam
+                        </span>
+                        <span className="font-mono">{formatIDR(basePrice)}</span>
+                      </div>
+
+                      {discountAmount > 0 && (
+                        <motion.div
+                          variants={alertSlideDown}
+                          initial="hidden"
+                          animate="visible"
+                          className="flex items-center justify-between text-emerald-400"
+                        >
+                          <span>Potongan Promo ({discountPercent}%)</span>
+                          <span className="font-mono">-{formatIDR(discountAmount)}</span>
+                        </motion.div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-zinc-800 text-sm font-bold text-white">
+                        <span>Total Pembayaran</span>
+                        <span className="font-mono text-base text-[#dfcbb5]">
+                          {formatIDR(finalPrice)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        className="w-full mt-2"
+                        isLoading={isSubmitting}
                       >
-                        {discountStatus.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Live Price Breakdown */}
-                  <div className="pt-3 border-t border-zinc-800/80 space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-zinc-400">
-                      <span>
-                        {formatIDR(hourlyPrice)} × {durasiJam} Jam
-                      </span>
-                      <span className="font-mono">{formatIDR(basePrice)}</span>
-                    </div>
-
-                    {discountAmount > 0 && (
-                      <div className="flex items-center justify-between text-emerald-400">
-                        <span>Potongan Promo ({discountPercent}%)</span>
-                        <span className="font-mono">-{formatIDR(discountAmount)}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800 text-sm font-bold text-white">
-                      <span>Total Pembayaran</span>
-                      <span className="font-mono text-base text-[#dfcbb5]">
-                        {formatIDR(finalPrice)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    className="w-full mt-2"
-                    isLoading={isSubmitting}
-                  >
-                    {isAuthenticated ? 'Konfirmasi & Bayar Reservasi' : 'Masuk untuk Konfirmasi Reservasi'}
-                  </Button>
-                </form>
-              )}
+                        {isAuthenticated ? 'Konfirmasi & Bayar Reservasi' : 'Masuk untuk Konfirmasi Reservasi'}
+                      </Button>
+                    </motion.div>
+                  </form>
+                )}
+              </AnimatePresence>
 
               <p className="text-[10px] text-zinc-500 text-center leading-relaxed">
                 Dengan mengonfirmasi reservasi, data pemesanan dikirimkan secara langsung ke official API coworking space.
               </p>
-            </div>
+            </motion.div>
           </div>
         </div>
-      </main>
+      </motion.main>
 
       {/* Footer */}
       <footer className="border-t border-zinc-900 bg-zinc-950 py-8 mt-16 text-center text-xs text-zinc-500">

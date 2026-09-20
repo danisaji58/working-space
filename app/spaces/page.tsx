@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Users, Check, ArrowRight, AlertCircle, Building, Sparkles } from 'lucide-react';
 import { getSpaces } from '@/lib/api/spaces';
 import { Space } from '@/types/api';
@@ -13,6 +14,13 @@ import { EmptyState, LoadingSkeleton } from '@/components/ui/EmptyState';
 import { PublicNav } from '@/components/layout/public-nav';
 import { MemberNav } from '@/components/layout/member-nav';
 import { useAuth } from '@/context/auth-context';
+import {
+  fadeInUp,
+  staggerContainer,
+  staggerContainerFast,
+  cardHoverMotion,
+  alertSlideDown,
+} from '@/components/ui/motion-variants';
 
 const TYPE_FILTERS = [
   { key: 'all', label: 'Semua Ruang' },
@@ -63,41 +71,68 @@ export default function PublicSpacesCatalogPage() {
       {isAuthenticated ? <MemberNav /> : <PublicNav />}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        {/* Header Title */}
-        <div className="space-y-3">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+        {/* Header Title with Stagger entrance */}
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="space-y-3"
+        >
+          <motion.h1
+            variants={fadeInUp}
+            className="text-3xl sm:text-4xl font-bold tracking-tight text-white"
+          >
             Pilihan Workstation, Meeting & Private Atelier
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
+          </motion.h1>
+          <motion.p
+            variants={fadeInUp}
+            className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed"
+          >
             Jelajahi seluruh pilihan ruang kerja dengan fasilitas internet gigabit, kursi ergonomis, dan privasi penuh. Anda dapat melihat detail ruang dan ketersediaan slot sebelum melakukan reservasi.
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
 
-        {apiError && (
-          <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-xs text-amber-300 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{apiError}</span>
-          </div>
-        )}
+        {/* API Error alert with AnimatePresence */}
+        <AnimatePresence>
+          {apiError && (
+            <motion.div
+              variants={alertSlideDown}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-xs text-amber-300 flex items-center gap-2"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{apiError}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.15 }}
+          className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 backdrop-blur-sm shadow-sm"
+        >
           {/* Type pill filters */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
             {TYPE_FILTERS.map((filter) => {
               const isSelected = selectedType === filter.key;
               return (
-                <button
+                <motion.button
                   key={filter.key}
+                  whileTap={{ scale: 0.94 }}
+                  whileHover={{ scale: 1.03 }}
                   onClick={() => setSelectedType(filter.key)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                     isSelected
                       ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-xs'
                       : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
                   }`}
                 >
                   {filter.label}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -110,12 +145,12 @@ export default function PublicSpacesCatalogPage() {
               placeholder="Cari nama ruang, fasilitas..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 text-xs rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+              className="w-full pl-9 pr-3.5 py-2 text-xs rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-[#c5a880] transition-colors"
             />
           </div>
-        </div>
+        </motion.div>
 
-        {/* Grid of Spaces */}
+        {/* Grid of Spaces with stagger animation */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <LoadingSkeleton rows={4} />
@@ -123,25 +158,41 @@ export default function PublicSpacesCatalogPage() {
             <LoadingSkeleton rows={4} />
           </div>
         ) : spaces.length === 0 ? (
-          <EmptyState
-            title="Tidak ada ruang kerja yang cocok"
-            description="Coba ubah kata kunci pencarian atau pilih kategori ruang yang lain."
-            actionLabel="Tampilkan Semua Ruang"
-            onAction={() => {
-              setSelectedType('all');
-              setSearchQuery('');
-            }}
-          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <EmptyState
+              title="Tidak ada ruang kerja yang cocok"
+              description="Coba ubah kata kunci pencarian atau pilih kategori ruang yang lain."
+              actionLabel="Tampilkan Semua Ruang"
+              onAction={() => {
+                setSelectedType('all');
+                setSearchQuery('');
+              }}
+            />
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div
+            variants={staggerContainerFast}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
             {spaces.map((space) => {
               const spaceId = space.id_space ?? space.id ?? 1;
               const isAvailable = space.available !== false && space.tersedia !== false;
 
               return (
-                <div
+                <motion.div
                   key={spaceId}
-                  className="card-luxury rounded-2xl overflow-hidden flex flex-col justify-between group"
+                  variants={fadeInUp}
+                  whileHover={{
+                    y: -7,
+                    transition: { duration: 0.22, ease: 'easeOut' },
+                  }}
+                  className="card-luxury rounded-2xl overflow-hidden flex flex-col justify-between group transition-shadow duration-300 hover:shadow-xl hover:shadow-black/60"
                 >
                   <div>
                     {/* Photo showcase */}
@@ -152,7 +203,7 @@ export default function PublicSpacesCatalogPage() {
                         fill
                         unoptimized
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                        className="object-cover group-hover:scale-108 transition-transform duration-700 opacity-90 group-hover:opacity-100"
                       />
                       <div className="absolute top-3 left-3">
                         <Badge variant="accent" size="sm">
@@ -215,19 +266,21 @@ export default function PublicSpacesCatalogPage() {
                     </div>
 
                     <Link href={`/spaces/${spaceId}`}>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                      >
-                        Detail & Pesan
-                      </Button>
+                      <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                        >
+                          Detail & Pesan
+                        </Button>
+                      </motion.div>
                     </Link>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </main>
 

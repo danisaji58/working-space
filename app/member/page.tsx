@@ -106,9 +106,6 @@ export default function MemberDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-900">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Dashboard Anggota</span>
-            <span>•</span>
             <span className="text-zinc-400 font-normal">{todayFormatted}</span>
           </div>
 
