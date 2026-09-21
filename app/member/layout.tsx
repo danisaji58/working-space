@@ -1,13 +1,16 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { MemberNav } from '@/components/layout/member-nav';
 import { PublicNav } from '@/components/layout/public-nav';
 import { ForbiddenView } from '@/components/auth/ForbiddenView';
 
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuth();
+  const isPublicCatalog = pathname?.startsWith('/member/spaces');
 
   // Smooth loading state to prevent flash of forbidden content
   if (isLoading) {
@@ -25,8 +28,19 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // If user is guest/unauthenticated, block access and render 403 Forbidden View
+  // If user is guest/unauthenticated, allow /member/spaces with PublicNav or block other member routes
   if (!isAuthenticated) {
+    if (isPublicCatalog) {
+      return (
+        <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col">
+          <PublicNav />
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-[#0b0b0c] text-zinc-100 flex flex-col">
         <PublicNav />

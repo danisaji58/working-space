@@ -171,7 +171,7 @@ export function saveLocalMember(memberData: Partial<Member>): Member {
     instansi: memberData.instansi || 'Umum',
     alamat: memberData.alamat || '',
     telp: memberData.telp || '08123456789',
-    foto: memberData.foto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    foto: memberData.foto || '',
     created_at: new Date().toISOString().split('T')[0],
   };
   members.unshift(newMember);

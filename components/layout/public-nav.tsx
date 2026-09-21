@@ -12,7 +12,7 @@ export function PublicNav() {
 
   const publicLinks = [
     { href: '/', label: 'Beranda' },
-    { href: '/#katalog', label: 'Pilihan Ruang' },
+    { href: '/spaces', label: 'Katalog Ruang' },
     { href: '/#fasilitas', label: 'Standar Fasilitas' },
     { href: '/#cara-pesan', label: 'Cara Reservasi' },
     { href: '/#promo', label: 'Promo Spesial' },
