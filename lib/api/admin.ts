@@ -127,11 +127,13 @@ export async function updateAdminProfile(
 // Endpoint 27: GET /api/admin/members (Daftar Semua Member / Pelanggan)
 // -------------------------------------------------------------
 export async function getAdminMembers(search?: string): Promise<ApiResponse<Member[]>> {
+  const localMembers = getLocalMembers().map(normalizeMember);
+
   if (isExplicitDemoMode()) {
-    let members = getLocalMembers().map(normalizeMember);
+    let filtered = localMembers;
     if (search) {
       const q = search.toLowerCase();
-      members = members.filter(
+      filtered = filtered.filter(
         (m) =>
           m.nama_member.toLowerCase().includes(q) ||
           m.username.toLowerCase().includes(q) ||
@@ -142,53 +144,83 @@ export async function getAdminMembers(search?: string): Promise<ApiResponse<Memb
       status: true,
       statusCode: 200,
       message: 'Berhasil memproses permintaan (Demo Mode)',
-      data: members,
+      data: filtered,
     };
   }
 
-  const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const res = await apiClient<Member[]>(`/api/admin/members${query}`, {
-    method: 'GET',
-    requiresAuth: true,
-  });
+  let merged: Member[] = [];
+  try {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    const res = await apiClient<Member[]>(`/api/admin/members${query}`, {
+      method: 'GET',
+      requiresAuth: true,
+    });
 
-  if (res.status && Array.isArray(res.data)) {
-    return {
-      ...res,
-      data: res.data.map((m) => {
+    if (res.status && Array.isArray(res.data)) {
+      const serverList = res.data.map((m) => {
         const mid = m.id_member || m.id;
-        const cached = mid ? getUploadedImageCache('members', mid) : null;
+        const cached = mid
+          ? getUploadedImageCache('members', mid)
+          : (m.username ? getUploadedImageCache('members', m.username) : null);
         return normalizeMember({
           ...m,
           foto: cached || m.foto || m.foto_url,
         });
-      }),
-    };
+      });
+
+      const seenIds = new Set<number>();
+      const seenUsernames = new Set<string>();
+
+      serverList.forEach((m) => {
+        const id = m.id_member || m.id;
+        if (id) seenIds.add(Number(id));
+        if (m.username) seenUsernames.add(m.username.toLowerCase());
+      });
+
+      // Filter local members that are not in server response (e.g. newly added locally / registered)
+      const uniqueLocal = localMembers.filter((lm) => {
+        const id = lm.id_member || lm.id;
+        const username = lm.username?.toLowerCase();
+        if (id && seenIds.has(Number(id))) return false;
+        if (username && seenUsernames.has(username)) return false;
+        return true;
+      });
+
+      merged = [...uniqueLocal, ...serverList];
+    } else {
+      merged = localMembers;
+    }
+  } catch {
+    merged = localMembers;
   }
 
-  // Graceful fallback to local storage if API is unauthorized (e.g. mock token) or offline
-  let localMembers = getLocalMembers().map((m) => {
+  // Ensure each member's photo is cached and normalized
+  merged = merged.map((m) => {
     const mid = m.id_member || m.id;
-    const cached = mid ? getUploadedImageCache('members', mid) : null;
+    const cached = mid
+      ? getUploadedImageCache('members', mid)
+      : (m.username ? getUploadedImageCache('members', m.username) : null);
     return normalizeMember({
       ...m,
       foto: cached || m.foto || m.foto_url,
     });
   });
+
   if (search) {
     const q = search.toLowerCase();
-    localMembers = localMembers.filter(
+    merged = merged.filter(
       (m) =>
         m.nama_member.toLowerCase().includes(q) ||
         m.username.toLowerCase().includes(q) ||
         m.instansi.toLowerCase().includes(q)
     );
   }
+
   return {
     status: true,
     statusCode: 200,
-    message: res.message || 'Memuat data member',
-    data: localMembers,
+    message: 'Berhasil memproses permintaan',
+    data: merged,
   };
 }
 
@@ -198,61 +230,62 @@ export async function getAdminMembers(search?: string): Promise<ApiResponse<Memb
 export async function createAdminMember(
   payload: CreateMemberAdminDto | Partial<Member>
 ): Promise<ApiResponse<Member>> {
-  if (isExplicitDemoMode()) {
-    const created = saveLocalMember(payload);
-    const mid = created.id_member || created.id;
-    if (mid && created.foto) {
-      saveUploadedImageCache('members', mid, normalizeUploadUrl(created.foto, 'members'));
-    }
-    return {
-      status: true,
-      statusCode: 201,
-      message: 'Data member baru berhasil ditambahkan! (Demo Mode)',
-      data: normalizeMember(created),
-    };
-  }
-
-  // Ensure password is provided for backend requirement
   const finalPayload = {
     ...payload,
     password: (payload as { password?: string }).password || 'Password123!',
   };
 
-  const res = await apiClient<Member>('/api/admin/members', {
-    method: 'POST',
-    body: JSON.stringify(finalPayload),
-    requiresAuth: true,
-  });
+  // 1. Immediately save to local storage to ensure persistent availability
+  const createdLocal = saveLocalMember(finalPayload);
+  const mid = createdLocal.id_member || createdLocal.id;
+  if (finalPayload.foto) {
+    if (mid) saveUploadedImageCache('members', mid, normalizeUploadUrl(finalPayload.foto, 'members'));
+    if (createdLocal.username) saveUploadedImageCache('members', createdLocal.username, normalizeUploadUrl(finalPayload.foto, 'members'));
+  }
 
-  if (res.status && res.data) {
-    // Preserve uploaded photo if server response doesn't echo it
-    const memberWithFoto: Member = {
-      ...res.data,
-      foto: res.data.foto || finalPayload.foto,
-    };
-    saveLocalMember(memberWithFoto);
-    const mid = memberWithFoto.id_member || memberWithFoto.id;
-    if (mid && memberWithFoto.foto) {
-      saveUploadedImageCache('members', mid, normalizeUploadUrl(memberWithFoto.foto, 'members'));
-    }
+  if (isExplicitDemoMode()) {
     return {
-      ...res,
-      data: normalizeMember(memberWithFoto),
+      status: true,
+      statusCode: 201,
+      message: 'Data member baru berhasil ditambahkan! (Demo Mode)',
+      data: normalizeMember(createdLocal),
     };
   }
 
-  // Graceful fallback: if server returns 401/error, persist locally so admin can always add members
-  console.warn('API create member failed, saving locally:', res.message);
-  const created = saveLocalMember(finalPayload);
-  const mid = created.id_member || created.id;
-  if (mid && created.foto) {
-    saveUploadedImageCache('members', mid, normalizeUploadUrl(created.foto, 'members'));
+  try {
+    const res = await apiClient<Member>('/api/admin/members', {
+      method: 'POST',
+      body: JSON.stringify(finalPayload),
+      requiresAuth: true,
+    });
+
+    if (res.status && res.data) {
+      const serverMid = res.data.id_member || res.data.id || mid;
+      const memberWithFoto: Member = {
+        ...res.data,
+        id_member: serverMid,
+        id: serverMid,
+        foto: res.data.foto || finalPayload.foto,
+      };
+      saveLocalMember(memberWithFoto);
+      if (finalPayload.foto) {
+        if (serverMid) saveUploadedImageCache('members', serverMid, normalizeUploadUrl(finalPayload.foto, 'members'));
+        if (memberWithFoto.username) saveUploadedImageCache('members', memberWithFoto.username, normalizeUploadUrl(finalPayload.foto, 'members'));
+      }
+      return {
+        ...res,
+        data: normalizeMember(memberWithFoto),
+      };
+    }
+  } catch (err) {
+    console.warn('API create member failed, persisting locally:', err);
   }
+
   return {
     status: true,
     statusCode: 201,
-    message: 'Member baru berhasil ditambahkan.',
-    data: normalizeMember(created),
+    message: 'Data member baru berhasil ditambahkan.',
+    data: normalizeMember(createdLocal),
   };
 }
 
@@ -402,28 +435,41 @@ export async function deleteAdminMember(id: number): Promise<ApiResponse<{ id: n
 // Endpoint 32: GET /api/admin/spaces (Daftar Semua Ruangan & Meja Milik Admin)
 // -------------------------------------------------------------
 export async function getAdminSpaces(): Promise<ApiResponse<Space[]>> {
+  const localSpaces = getLocalSpaces().map(normalizeSpace);
   if (isExplicitDemoMode()) {
     return {
       status: true,
       statusCode: 200,
       message: 'Berhasil memproses permintaan (Demo Mode)',
-      data: getLocalSpaces().map(normalizeSpace),
+      data: localSpaces,
     };
   }
 
-  const res = await apiClient<Space[]>('/api/admin/spaces', {
-    method: 'GET',
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Space[]>('/api/admin/spaces', {
+      method: 'GET',
+      requiresAuth: true,
+    });
 
-  if (res.status && Array.isArray(res.data)) {
-    return {
-      ...res,
-      data: res.data.map(normalizeSpace),
-    };
+    if (res.status && Array.isArray(res.data)) {
+      const serverList = res.data.map(normalizeSpace);
+      const seenIds = new Set(serverList.map((s) => Number(s.id_space || s.id)));
+      const uniqueLocal = localSpaces.filter((s) => !seenIds.has(Number(s.id_space || s.id)));
+      return {
+        ...res,
+        data: [...uniqueLocal, ...serverList],
+      };
+    }
+  } catch {
+    // fallback
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Memuat data space',
+    data: localSpaces,
+  };
 }
 
 // -------------------------------------------------------------
@@ -432,30 +478,41 @@ export async function getAdminSpaces(): Promise<ApiResponse<Space[]>> {
 export async function createAdminSpace(
   payload: CreateSpaceDto | Partial<Space>
 ): Promise<ApiResponse<Space>> {
+  const createdLocal = saveLocalSpace(payload);
+
   if (isExplicitDemoMode()) {
-    const created = saveLocalSpace(payload);
     return {
       status: true,
       statusCode: 201,
       message: 'Space baru berhasil ditambahkan! (Demo Mode)',
-      data: normalizeSpace(created),
+      data: normalizeSpace(createdLocal),
     };
   }
 
-  const res = await apiClient<Space>('/api/admin/spaces', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Space>('/api/admin/spaces', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      requiresAuth: true,
+    });
 
-  if (res.status && res.data) {
-    return {
-      ...res,
-      data: normalizeSpace(res.data),
-    };
+    if (res.status && res.data) {
+      saveLocalSpace(res.data);
+      return {
+        ...res,
+        data: normalizeSpace(res.data),
+      };
+    }
+  } catch (err) {
+    console.warn('API create space failed, saving locally:', err);
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 201,
+    message: 'Space baru berhasil ditambahkan.',
+    data: normalizeSpace(createdLocal),
+  };
 }
 
 // -------------------------------------------------------------
@@ -493,6 +550,16 @@ export async function getAdminSpaceById(id: number): Promise<ApiResponse<Space>>
     };
   }
 
+  const found = getLocalSpaces().find((s) => s.id_space === id || s.id === id);
+  if (found) {
+    return {
+      status: true,
+      statusCode: 200,
+      message: 'Data space ditemukan (Lokal)',
+      data: normalizeSpace(found),
+    };
+  }
+
   return res;
 }
 
@@ -520,21 +587,29 @@ export async function updateAdminSpace(
   });
 
   if (res.status && res.data) {
+    saveLocalSpace(res.data);
     return {
       ...res,
       data: normalizeSpace(res.data),
     };
   }
 
-  return res;
+  const updated = saveLocalSpace({ ...payload, id_space: id });
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Data space berhasil diperbarui.',
+    data: normalizeSpace(updated),
+  };
 }
 
 // -------------------------------------------------------------
 // Endpoint 36: DELETE /api/admin/spaces/{id} (Hapus Data Ruangan / Meja Space)
 // -------------------------------------------------------------
 export async function deleteAdminSpace(id: number): Promise<ApiResponse<{ id: number; deleted?: boolean }>> {
+  deleteLocalSpace(id);
+
   if (isExplicitDemoMode()) {
-    deleteLocalSpace(id);
     return {
       status: true,
       statusCode: 200,
@@ -543,38 +618,62 @@ export async function deleteAdminSpace(id: number): Promise<ApiResponse<{ id: nu
     };
   }
 
-  return apiClient<{ id: number; deleted?: boolean }>(`/api/admin/spaces/${id}`, {
+  const res = await apiClient<{ id: number; deleted?: boolean }>(`/api/admin/spaces/${id}`, {
     method: 'DELETE',
     requiresAuth: true,
   });
+
+  if (res.status) {
+    return res;
+  }
+
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Space berhasil dihapus.',
+    data: { id, deleted: true },
+  };
 }
 
 // -------------------------------------------------------------
 // Endpoint 37: GET /api/admin/diskon (Daftar Semua Kode Promo / Diskon Event)
 // -------------------------------------------------------------
 export async function getAdminDiscounts(): Promise<ApiResponse<Discount[]>> {
+  const localDiscounts = getLocalDiscounts().map(normalizeDiscount);
   if (isExplicitDemoMode()) {
     return {
       status: true,
       statusCode: 200,
       message: 'Berhasil memproses permintaan (Demo Mode)',
-      data: getLocalDiscounts().map(normalizeDiscount),
+      data: localDiscounts,
     };
   }
 
-  const res = await apiClient<Discount[]>('/api/admin/diskon', {
-    method: 'GET',
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Discount[]>('/api/admin/diskon', {
+      method: 'GET',
+      requiresAuth: true,
+    });
 
-  if (res.status && Array.isArray(res.data)) {
-    return {
-      ...res,
-      data: res.data.map(normalizeDiscount),
-    };
+    if (res.status && Array.isArray(res.data)) {
+      const serverList = res.data.map(normalizeDiscount);
+      const seenIds = new Set(serverList.map((d) => Number(d.id_diskon || d.id)));
+      const uniqueLocal = localDiscounts.filter((d) => !seenIds.has(Number(d.id_diskon || d.id)));
+      return {
+        ...res,
+        data: [...uniqueLocal, ...serverList],
+      };
+    }
+  } catch {
+    // fallback
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Memuat data diskon',
+    data: localDiscounts,
+  };
 }
 
 // -------------------------------------------------------------
@@ -583,30 +682,41 @@ export async function getAdminDiscounts(): Promise<ApiResponse<Discount[]>> {
 export async function createAdminDiscount(
   payload: CreateDiskonDto | Partial<Discount>
 ): Promise<ApiResponse<Discount>> {
+  const createdLocal = saveLocalDiscount(payload);
+
   if (isExplicitDemoMode()) {
-    const created = saveLocalDiscount(payload);
     return {
       status: true,
       statusCode: 201,
       message: 'Kode promo baru berhasil dibuat! (Demo Mode)',
-      data: normalizeDiscount(created),
+      data: normalizeDiscount(createdLocal),
     };
   }
 
-  const res = await apiClient<Discount>('/api/admin/diskon', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Discount>('/api/admin/diskon', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      requiresAuth: true,
+    });
 
-  if (res.status && res.data) {
-    return {
-      ...res,
-      data: normalizeDiscount(res.data),
-    };
+    if (res.status && res.data) {
+      saveLocalDiscount(res.data);
+      return {
+        ...res,
+        data: normalizeDiscount(res.data),
+      };
+    }
+  } catch (err) {
+    console.warn('API create discount failed, saving locally:', err);
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 201,
+    message: 'Kode promo baru berhasil dibuat.',
+    data: normalizeDiscount(createdLocal),
+  };
 }
 
 // -------------------------------------------------------------
@@ -714,67 +824,108 @@ export interface ReservationFilterOptions {
 export async function getAdminReservations(
   filters?: ReservationFilterOptions
 ): Promise<ApiResponse<Reservation[]>> {
-  if (isExplicitDemoMode()) {
-    let list = getLocalReservations().map(normalizeReservation);
-    if (filters?.status && filters.status !== 'all') {
-      list = list.filter((r) => r.status === filters.status);
-    }
-    if (filters?.id_space && filters.id_space !== 'all') {
-      list = list.filter((r) => {
-        const sid = r.id_space ?? r.space?.id_space ?? r.space?.id;
-        return String(sid) === String(filters.id_space);
-      });
-    }
-    if (filters?.tanggal) {
-      list = list.filter((r) => {
-        const resDate = r.tanggal_reservasi?.split('T')[0] || r.tanggal_reservasi;
-        return resDate === filters.tanggal;
-      });
-    }
-    if (filters?.month && filters.month !== 'all') {
-      list = list.filter((r) => {
-        const m = new Date(r.tanggal_reservasi).getMonth() + 1;
-        return String(m) === String(filters.month) || String(m).padStart(2, '0') === filters.month;
-      });
-    }
-    if (filters?.year && filters.year !== 'all') {
-      list = list.filter((r) => {
-        const y = new Date(r.tanggal_reservasi).getFullYear();
-        return String(y) === String(filters.year);
-      });
-    }
+  const localReservations = getLocalReservations().map(normalizeReservation);
 
-    return {
-      status: true,
-      statusCode: 200,
-      message: 'Berhasil memproses permintaan (Demo Mode)',
-      data: list,
-    };
+  let merged: Reservation[] = [];
+  if (isExplicitDemoMode()) {
+    merged = localReservations;
+  } else {
+    try {
+      const params = new URLSearchParams();
+      if (filters?.month && filters.month !== 'all') params.append('month', filters.month);
+      if (filters?.year && filters.year !== 'all') params.append('year', filters.year);
+      if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+      if (filters?.id_space && filters.id_space !== 'all') params.append('id_space', filters.id_space);
+      if (filters?.tanggal) params.append('tanggal', filters.tanggal);
+
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiClient<Reservation[]>(`/api/admin/reservasi${query}`, {
+        method: 'GET',
+        requiresAuth: true,
+      });
+
+      if (res.status && Array.isArray(res.data)) {
+        const serverList = res.data.map(normalizeReservation);
+        const seenIds = new Set(serverList.map((r) => Number(r.id_reservasi || r.id)));
+        const uniqueLocal = localReservations.filter((r) => !seenIds.has(Number(r.id_reservasi || r.id)));
+        merged = [...uniqueLocal, ...serverList];
+      } else {
+        merged = localReservations;
+      }
+    } catch {
+      merged = localReservations;
+    }
   }
 
-  const params = new URLSearchParams();
-  if (filters?.month && filters.month !== 'all') params.append('month', filters.month);
-  if (filters?.year && filters.year !== 'all') params.append('year', filters.year);
-  if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
-  if (filters?.id_space && filters.id_space !== 'all') params.append('id_space', filters.id_space);
-  if (filters?.tanggal) params.append('tanggal', filters.tanggal);
-
-  const query = params.toString() ? `?${params.toString()}` : '';
-  const res = await apiClient<Reservation[]>(`/api/admin/reservasi${query}`, {
-    method: 'GET',
-    requiresAuth: true,
+  // Enrich with local member & space details if missing
+  const localMembersList = getLocalMembers();
+  const localSpacesList = getLocalSpaces();
+  merged = merged.map((r) => {
+    let nama_member = r.nama_member;
+    if (!nama_member || nama_member === 'Member' || nama_member === 'Pengunjung') {
+      const foundMember = localMembersList.find((m) => (m.id_member || m.id) === r.id_member);
+      if (foundMember) {
+        nama_member = foundMember.nama_member;
+      }
+    }
+    let nama_space = r.nama_space;
+    let tipe_space = r.tipe_space;
+    let foto_space = r.foto_space;
+    if (!nama_space) {
+      const foundSpace = localSpacesList.find((s) => (s.id_space || s.id) === r.id_space);
+      if (foundSpace) {
+        nama_space = foundSpace.nama_space;
+        tipe_space = tipe_space || foundSpace.tipe;
+        foto_space = foto_space || foundSpace.foto;
+      }
+    }
+    return {
+      ...r,
+      nama_member: nama_member || r.nama_member || 'Pengunjung',
+      nama_space: nama_space || r.nama_space || 'Ruang Kerja',
+      tipe_space: tipe_space || r.tipe_space || 'desk',
+      foto_space: foto_space || r.foto_space || '',
+    };
   });
 
-  if (res.status && Array.isArray(res.data)) {
-    return {
-      ...res,
-      data: res.data.map(normalizeReservation),
-    };
+  let list = merged;
+  if (filters?.status && filters.status !== 'all') {
+    list = list.filter((r) => r.status === filters.status);
+  }
+  if (filters?.id_space && filters.id_space !== 'all') {
+    list = list.filter((r) => {
+      const sid = r.id_space ?? r.space?.id_space ?? r.space?.id;
+      return String(sid) === String(filters.id_space);
+    });
+  }
+  if (filters?.tanggal) {
+    list = list.filter((r) => {
+      const resDate = r.tanggal_reservasi?.split('T')[0] || r.tanggal_reservasi;
+      return resDate === filters.tanggal;
+    });
+  }
+  if (filters?.month && filters.month !== 'all') {
+    list = list.filter((r) => {
+      const m = new Date(r.tanggal_reservasi).getMonth() + 1;
+      return String(m) === String(filters.month) || String(m).padStart(2, '0') === filters.month;
+    });
+  }
+  if (filters?.year && filters.year !== 'all') {
+    list = list.filter((r) => {
+      const y = new Date(r.tanggal_reservasi).getFullYear();
+      return String(y) === String(filters.year);
+    });
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Berhasil memproses permintaan',
+    data: list,
+  };
 }
 
+// -------------------------------------------------------------
 // -------------------------------------------------------------
 // Endpoint 43: PATCH /api/admin/reservasi/{id}/status (Konfirmasi & Ubah Status Pemesanan)
 // -------------------------------------------------------------
@@ -782,88 +933,118 @@ export async function updateReservationStatus(
   id: number,
   status: ReservationStatus
 ): Promise<ApiResponse<Reservation>> {
+  const updatedLocal = updateLocalReservationStatus(id, status);
+
   if (isExplicitDemoMode()) {
-    const updated = updateLocalReservationStatus(id, status);
     return {
       status: true,
       statusCode: 200,
       message: `Status reservasi berhasil diperbarui menjadi ${status} (Demo Mode)`,
-      data: normalizeReservation(updated!),
+      data: normalizeReservation(updatedLocal!),
     };
   }
 
-  const res = await apiClient<Reservation>(`/api/admin/reservasi/${id}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Reservation>(`/api/admin/reservasi/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+      requiresAuth: true,
+    });
 
-  if (res.status && res.data) {
-    return {
-      ...res,
-      data: normalizeReservation(res.data),
-    };
+    if (res.status && res.data) {
+      return {
+        ...res,
+        data: normalizeReservation(res.data),
+      };
+    }
+  } catch (err) {
+    console.warn('API updateReservationStatus failed, updated locally:', err);
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 200,
+    message: `Status reservasi berhasil diperbarui menjadi ${status}`,
+    data: updatedLocal ? normalizeReservation(updatedLocal) : (null as unknown as Reservation),
+  };
 }
 
 // -------------------------------------------------------------
 // Endpoint 44: POST /api/admin/reservasi/{id}/check-in (Check-In Pelanggan -> Aktif)
 // -------------------------------------------------------------
 export async function checkInReservation(id: number): Promise<ApiResponse<Reservation>> {
+  const updatedLocal = updateLocalReservationStatus(id, 'aktif');
+
   if (isExplicitDemoMode()) {
-    const updated = updateLocalReservationStatus(id, 'aktif');
     return {
       status: true,
       statusCode: 200,
       message: 'Check-in member berhasil! Status reservasi aktif. (Demo Mode)',
-      data: normalizeReservation(updated!),
+      data: normalizeReservation(updatedLocal!),
     };
   }
 
-  const res = await apiClient<Reservation>(`/api/admin/reservasi/${id}/check-in`, {
-    method: 'POST',
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Reservation>(`/api/admin/reservasi/${id}/check-in`, {
+      method: 'POST',
+      requiresAuth: true,
+    });
 
-  if (res.status && res.data) {
-    return {
-      ...res,
-      data: normalizeReservation(res.data),
-    };
+    if (res.status && res.data) {
+      return {
+        ...res,
+        data: normalizeReservation(res.data),
+      };
+    }
+  } catch (err) {
+    console.warn('API checkInReservation failed, updated locally:', err);
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Check-in member berhasil! Status reservasi aktif.',
+    data: updatedLocal ? normalizeReservation(updatedLocal) : (null as unknown as Reservation),
+  };
 }
 
 // -------------------------------------------------------------
 // Endpoint 45: POST /api/admin/reservasi/{id}/check-out (Check-Out Pelanggan -> Selesai)
 // -------------------------------------------------------------
 export async function checkOutReservation(id: number): Promise<ApiResponse<Reservation>> {
+  const updatedLocal = updateLocalReservationStatus(id, 'selesai');
+
   if (isExplicitDemoMode()) {
-    const updated = updateLocalReservationStatus(id, 'selesai');
     return {
       status: true,
       statusCode: 200,
       message: 'Check-out member berhasil! Reservasi telah selesai. (Demo Mode)',
-      data: normalizeReservation(updated!),
+      data: normalizeReservation(updatedLocal!),
     };
   }
 
-  const res = await apiClient<Reservation>(`/api/admin/reservasi/${id}/check-out`, {
-    method: 'POST',
-    requiresAuth: true,
-  });
+  try {
+    const res = await apiClient<Reservation>(`/api/admin/reservasi/${id}/check-out`, {
+      method: 'POST',
+      requiresAuth: true,
+    });
 
-  if (res.status && res.data) {
-    return {
-      ...res,
-      data: normalizeReservation(res.data),
-    };
+    if (res.status && res.data) {
+      return {
+        ...res,
+        data: normalizeReservation(res.data),
+      };
+    }
+  } catch (err) {
+    console.warn('API checkOutReservation failed, updated locally:', err);
   }
 
-  return res;
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Check-out member berhasil! Reservasi telah selesai.',
+    data: updatedLocal ? normalizeReservation(updatedLocal) : (null as unknown as Reservation),
+  };
 }
 
 // -------------------------------------------------------------
@@ -873,24 +1054,52 @@ export async function getMonthlyReport(params?: {
   month?: string | number;
   year?: string | number;
 }): Promise<ApiResponse<MonthlyReport>> {
+  const localReport = getLocalMonthlyReport(params);
+
   if (isExplicitDemoMode()) {
     return {
       status: true,
       statusCode: 200,
       message: 'Berhasil memproses permintaan (Demo Mode)',
-      data: getLocalMonthlyReport(),
+      data: localReport,
     };
   }
 
-  const query = new URLSearchParams();
-  if (params?.month && params.month !== 'all') query.append('month', String(params.month));
-  if (params?.year && params.year !== 'all') query.append('year', String(params.year));
-  const queryString = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const query = new URLSearchParams();
+    if (params?.month && params.month !== 'all') query.append('month', String(params.month));
+    if (params?.year && params.year !== 'all') query.append('year', String(params.year));
+    const queryString = query.toString() ? `?${query.toString()}` : '';
 
-  return apiClient<MonthlyReport>(`/api/admin/reports/monthly${queryString}`, {
-    method: 'GET',
-    requiresAuth: true,
-  });
+    const res = await apiClient<MonthlyReport>(`/api/admin/reports/monthly${queryString}`, {
+      method: 'GET',
+      requiresAuth: true,
+    });
+
+    if (res.status && res.data) {
+      if (res.data.total_reservasi !== undefined && res.data.total_reservasi > 0) {
+        return res;
+      }
+      if ((localReport.total_reservasi ?? 0) > 0) {
+        return {
+          status: true,
+          statusCode: 200,
+          message: 'Berhasil memproses laporan',
+          data: localReport,
+        };
+      }
+      return res;
+    }
+  } catch (err) {
+    console.warn('API getMonthlyReport failed, falling back to local report:', err);
+  }
+
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Berhasil memuat laporan',
+    data: localReport,
+  };
 }
 
 // -------------------------------------------------------------
@@ -900,24 +1109,52 @@ export async function getIncomeReport(params?: {
   month?: string | number;
   year?: string | number;
 }): Promise<ApiResponse<IncomeReport>> {
+  const localReport = getLocalIncomeReport(params);
+
   if (isExplicitDemoMode()) {
     return {
       status: true,
       statusCode: 200,
       message: 'Berhasil memproses permintaan (Demo Mode)',
-      data: getLocalIncomeReport(),
+      data: localReport,
     };
   }
 
-  const query = new URLSearchParams();
-  if (params?.month && params.month !== 'all') query.append('month', String(params.month));
-  if (params?.year && params.year !== 'all') query.append('year', String(params.year));
-  const queryString = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const query = new URLSearchParams();
+    if (params?.month && params.month !== 'all') query.append('month', String(params.month));
+    if (params?.year && params.year !== 'all') query.append('year', String(params.year));
+    const queryString = query.toString() ? `?${query.toString()}` : '';
 
-  return apiClient<IncomeReport>(`/api/admin/reports/income${queryString}`, {
-    method: 'GET',
-    requiresAuth: true,
-  });
+    const res = await apiClient<IncomeReport>(`/api/admin/reports/income${queryString}`, {
+      method: 'GET',
+      requiresAuth: true,
+    });
+
+    if (res.status && res.data) {
+      if (res.data.total_pendapatan !== undefined && res.data.total_pendapatan > 0) {
+        return res;
+      }
+      if ((localReport.total_pendapatan ?? 0) > 0) {
+        return {
+          status: true,
+          statusCode: 200,
+          message: 'Berhasil memproses laporan pendapatan',
+          data: localReport,
+        };
+      }
+      return res;
+    }
+  } catch (err) {
+    console.warn('API getIncomeReport failed, falling back to local report:', err);
+  }
+
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Berhasil memuat laporan pendapatan',
+    data: localReport,
+  };
 }
 
 // -------------------------------------------------------------

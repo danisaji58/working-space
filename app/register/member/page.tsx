@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { registerMember } from '@/lib/api/auth';
+import { uploadMemberImage } from '@/lib/api/admin';
 import { useAuth } from '@/context/auth-context';
+import { resolveMemberImage, normalizeUploadUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -17,6 +19,7 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
+  Upload,
 } from 'lucide-react';
 
 export default function RegisterMemberPage() {
@@ -33,10 +36,51 @@ export default function RegisterMemberPage() {
     foto: '',
   });
 
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadStatus('uploading');
+
+    // 1. Read Base64 immediately so preview updates without delay
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        setPreviewUrl(base64);
+        setFormData((prev) => ({ ...prev, foto: base64 }));
+      }
+
+      // 2. Try upload to server
+      try {
+        const res = await uploadMemberImage(file);
+        if (res.status && res.data) {
+          const serverUrl = res.data.url || res.data.filename;
+          const normalized = normalizeUploadUrl(serverUrl, 'members');
+          setFormData((prev) => ({
+            ...prev,
+            foto: normalized,
+          }));
+          setPreviewUrl(normalized);
+          setUploadStatus('done');
+        } else {
+          setUploadStatus('done');
+        }
+      } catch {
+        setUploadStatus('done');
+      }
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -64,11 +108,14 @@ export default function RegisterMemberPage() {
     setIsLoading(true);
 
     try {
+      const finalPhoto =
+        previewUrl ||
+        formData.foto ||
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+
       const payload = {
         ...formData,
-        foto:
-          formData.foto ||
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+        foto: finalPhoto,
       };
 
       const res = await registerMember(payload);
@@ -172,10 +219,53 @@ export default function RegisterMemberPage() {
                   label="Foto Profil (URL)"
                   placeholder="https://..."
                   value={formData.foto}
-                  onChange={(e) => setFormData({ ...formData, foto: e.target.value })}
-                  helperText="Opsional. Kosongkan untuk avatar default."
+                  onChange={(e) => {
+                    setFormData({ ...formData, foto: e.target.value });
+                    setPreviewUrl(e.target.value);
+                  }}
+                  helperText="URL langsung atau unggah berkas foto dari komputer di bawah."
                   leftIcon={<ImageIcon className="w-4 h-4" />}
                 />
+              </div>
+
+              {/* Live Avatar Preview & Upload Button */}
+              <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center gap-3.5">
+                <div className="relative w-12 h-12 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl || resolveMemberImage({ foto: formData.foto })}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      if (!img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
+                        img.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=60';
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1 flex-1">
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 text-xs text-zinc-200 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 px-3 py-1.5 rounded-lg cursor-pointer transition-colors w-fit font-medium">
+                      <Upload className="w-3.5 h-3.5 text-[#c5a880]" />
+                      <span>{uploadStatus === 'uploading' ? 'Mengunggah...' : 'Unggah Foto dari Komputer'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        disabled={uploadStatus === 'uploading'}
+                      />
+                    </label>
+                    {uploadStatus === 'done' && (
+                      <span className="text-[11px] text-emerald-400 font-mono">✓ Foto terpilih</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-zinc-400">
+                    Mendukung JPG, PNG, WebP (maks 5MB)
+                  </p>
+                </div>
               </div>
 
               <Textarea

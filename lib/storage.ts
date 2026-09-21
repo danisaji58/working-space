@@ -20,13 +20,13 @@ import {
 import { calculatePrice, calculateEndTime } from './utils';
 
 const KEYS = {
-  SPACES: 'ssb_spaces_v1',
-  DISCOUNTS: 'ssb_discounts_v1',
-  MEMBERS: 'ssb_members_v1',
-  RESERVATIONS: 'ssb_reservations_v1',
-  ADMIN_PROFILE: 'ssb_admin_profile_v1',
-  MONTHLY_REPORT: 'ssb_monthly_report_v1',
-  INCOME_REPORT: 'ssb_income_report_v1',
+  SPACES: 'ssb_spaces_v2',
+  DISCOUNTS: 'ssb_discounts_v2',
+  MEMBERS: 'ssb_members_v2',
+  RESERVATIONS: 'ssb_reservations_v2',
+  ADMIN_PROFILE: 'ssb_admin_profile_v2',
+  MONTHLY_REPORT: 'ssb_monthly_report_v2',
+  INCOME_REPORT: 'ssb_income_report_v2',
 };
 
 function getItem<T>(key: string, fallback: T): T {
@@ -205,9 +205,24 @@ export function createLocalReservation(payload: {
   kode_promo?: string | null;
   id_member?: number;
   nama_member?: string;
+  nama_space?: string;
+  tipe_space?: 'desk' | 'meeting_room' | 'private_office' | string;
+  foto_space?: string;
+  harga_per_jam?: number;
 }): Reservation {
   const reservations = getLocalReservations();
-  const space = getLocalSpaceById(payload.id_space) || INITIAL_SPACES[0];
+  const space = getLocalSpaceById(payload.id_space) || {
+    id_space: payload.id_space,
+    id: payload.id_space,
+    nama_space: payload.nama_space || 'Ruang Kerja',
+    tipe: (payload.tipe_space as 'desk' | 'meeting_room' | 'private_office') || 'desk',
+    foto: payload.foto_space || '',
+    harga_per_jam: payload.harga_per_jam || 25000,
+    kapasitas: 1,
+    deskripsi: '',
+    tersedia: true,
+    fasilitas: [],
+  };
 
   let discountPercent = 0;
   if (payload.kode_promo) {
@@ -217,8 +232,9 @@ export function createLocalReservation(payload: {
     }
   }
 
+  const hourlyRate = payload.harga_per_jam || space.harga_per_jam || 25000;
   const { finalPrice } = calculatePrice(
-    space.harga_per_jam,
+    hourlyRate,
     payload.durasi_jam,
     discountPercent
   );
@@ -230,12 +246,12 @@ export function createLocalReservation(payload: {
     id_reservasi: newId,
     id: newId,
     id_member: payload.id_member || 101,
-    nama_member: payload.nama_member || 'Ahmad Fauzi',
-    id_space: space.id_space ?? space.id ?? 0,
-    nama_space: space.nama_space,
-    tipe_space: space.tipe,
-    foto_space: space.foto,
-    harga_per_jam: space.harga_per_jam,
+    nama_member: payload.nama_member || 'Pengunjung',
+    id_space: space.id_space ?? space.id ?? payload.id_space,
+    nama_space: payload.nama_space || space.nama_space,
+    tipe_space: payload.tipe_space || space.tipe,
+    foto_space: payload.foto_space || space.foto,
+    harga_per_jam: hourlyRate,
     tanggal_reservasi: payload.tanggal_reservasi,
     jam_mulai: payload.jam_mulai,
     durasi_jam: Number(payload.durasi_jam),
@@ -243,6 +259,7 @@ export function createLocalReservation(payload: {
     kode_promo: payload.kode_promo || null,
     persentase_diskon: discountPercent,
     total_harga: finalPrice,
+    total_bayar: finalPrice,
     status: 'belum_dikonfirm',
     waktu_check_in: null,
     waktu_check_out: null,
@@ -259,7 +276,7 @@ export function updateLocalReservationStatus(
   status: ReservationStatus
 ): Reservation | null {
   const reservations = getLocalReservations();
-  const index = reservations.findIndex((r) => r.id_reservasi === id);
+  const index = reservations.findIndex((r) => (r.id_reservasi ?? r.id) === id);
   if (index === -1) return null;
 
   const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
@@ -269,7 +286,7 @@ export function updateLocalReservationStatus(
     ...current,
     status,
     waktu_check_in: status === 'aktif' ? (current.waktu_check_in || nowStr) : current.waktu_check_in,
-    waktu_check_out: status === 'selesai' ? nowStr : current.waktu_check_out,
+    waktu_check_out: status === 'selesai' ? (current.waktu_check_out || nowStr) : current.waktu_check_out,
   };
 
   reservations[index] = updated;
@@ -282,12 +299,23 @@ export function getLocalETicket(id: number): ETicketData | null {
   if (!reservation) return null;
 
   const adminProfile = getLocalAdminProfile();
-  const space = getLocalSpaceById(reservation.id_space) || INITIAL_SPACES[0];
+  const space = getLocalSpaceById(reservation.id_space) || {
+    id_space: reservation.id_space,
+    id: reservation.id_space,
+    nama_space: reservation.nama_space || 'Ruang Kerja',
+    tipe: reservation.tipe_space || 'desk',
+    foto: reservation.foto_space || '',
+    harga_per_jam: reservation.harga_per_jam || 25000,
+    kapasitas: 1,
+    deskripsi: '',
+    tersedia: true,
+    fasilitas: [],
+  };
   const members = getLocalMembers();
   const member = members.find((m) => (m.id_member || m.id) === reservation.id_member) || {
     nama_member: reservation.nama_member || 'Pengunjung',
-    instansi: 'SMK Telkom Malang',
-    telp: '081234567890',
+    instansi: 'Umum',
+    telp: '-',
     username: 'member',
   };
 
@@ -356,14 +384,41 @@ export function saveLocalAdminProfile(profileData: Partial<AdminProfile>): Admin
 }
 
 // REPORTS
-export function getLocalMonthlyReport(): MonthlyReport {
-  const reservations = getLocalReservations();
+export function getLocalMonthlyReport(filters?: {
+  month?: string | number;
+  year?: string | number;
+}): MonthlyReport {
+  let reservations = getLocalReservations();
+  const spaces = getLocalSpaces();
+
+  if (filters?.month && filters.month !== 'all') {
+    reservations = reservations.filter((r) => {
+      const m = new Date(r.tanggal_reservasi).getMonth() + 1;
+      return String(m) === String(filters.month) || String(m).padStart(2, '0') === String(filters.month);
+    });
+  }
+  if (filters?.year && filters.year !== 'all') {
+    reservations = reservations.filter((r) => {
+      const y = new Date(r.tanggal_reservasi).getFullYear();
+      return String(y) === String(filters.year);
+    });
+  }
+
+  const validReservations = reservations.filter((r) => r.status !== 'dibatalkan');
   const total = reservations.length;
   const selesai = reservations.filter((r) => r.status === 'selesai').length;
   const batal = reservations.filter((r) => r.status === 'dibatalkan').length;
-  const totalPendapatan = reservations
-    .filter((r) => r.status !== 'dibatalkan')
-    .reduce((acc, curr) => acc + (curr.total_harga || 0), 0);
+
+  const realisasiBersih = validReservations.reduce((acc, curr) => acc + (curr.total_harga || 0), 0);
+  const totalJam = validReservations.reduce((acc, curr) => acc + (Number(curr.durasi_jam) || 0), 0);
+
+  // Gross estimate before discounts
+  const estimasiKotor = validReservations.reduce((acc, curr) => {
+    const sp = spaces.find((s) => s.id_space === curr.id_space);
+    const hourly = sp?.harga_per_jam || curr.harga_per_jam || 0;
+    return acc + hourly * (Number(curr.durasi_jam) || 1);
+  }, 0);
+  const totalPotongan = Math.max(0, estimasiKotor - realisasiBersih);
 
   const breakdown: Record<ReservationStatus, number> = {
     belum_dikonfirm: reservations.filter((r) => r.status === 'belum_dikonfirm').length,
@@ -373,64 +428,62 @@ export function getLocalMonthlyReport(): MonthlyReport {
     dibatalkan: batal,
   };
 
+  const types: { tipe: 'desk' | 'meeting_room' | 'private_office'; label: string }[] = [
+    { tipe: 'desk', label: 'Personal Desk' },
+    { tipe: 'meeting_room', label: 'Meeting Room' },
+    { tipe: 'private_office', label: 'Private Office' },
+  ];
+
+  const rincianSpace = types.map((t) => {
+    const filtered = validReservations.filter((r) => {
+      const sp = spaces.find((s) => s.id_space === r.id_space);
+      return (sp?.tipe === t.tipe || r.tipe_space === t.tipe);
+    });
+    return {
+      tipe: t.tipe,
+      label: t.label,
+      total_booking: filtered.length,
+      total_jam: filtered.reduce((sum, r) => sum + (Number(r.durasi_jam) || 0), 0),
+      total_pendapatan: filtered.reduce((sum, r) => sum + (Number(r.total_harga) || 0), 0),
+    };
+  });
+
   return {
-    bulan: 'September',
-    tahun: 2026,
+    bulan: filters?.month ? String(filters.month) : 'Semua',
+    tahun: filters?.year ? Number(filters.year) : new Date().getFullYear(),
     total_reservasi: total,
-    total_pendapatan: totalPendapatan,
+    total_transaksi: total,
+    total_pendapatan: realisasiBersih,
+    estimasi_pendapatan_kotor: estimasiKotor,
+    total_potongan_diskon: totalPotongan,
+    realisasi_pendapatan_bersih: realisasiBersih,
+    total_jam_terpakai: totalJam,
     reservasi_selesai: selesai,
     reservasi_batal: batal,
     breakdown_status: breakdown,
+    rincian_per_tipe_space: rincianSpace,
   };
 }
 
-export function getLocalIncomeReport(): IncomeReport {
-  const reservations = getLocalReservations();
-  const spaces = getLocalSpaces();
+export function getLocalIncomeReport(filters?: {
+  month?: string | number;
+  year?: string | number;
+}): IncomeReport {
+  const report = getLocalMonthlyReport(filters);
+  const total = report.realisasi_pendapatan_bersih || report.total_pendapatan || 0;
 
-  const deskReservations = reservations.filter((r) => {
-    const s = spaces.find((sp) => sp.id_space === r.id_space);
-    return s?.tipe === 'desk' && r.status !== 'dibatalkan';
-  });
-  const meetingReservations = reservations.filter((r) => {
-    const s = spaces.find((sp) => sp.id_space === r.id_space);
-    return s?.tipe === 'meeting_room' && r.status !== 'dibatalkan';
-  });
-  const officeReservations = reservations.filter((r) => {
-    const s = spaces.find((sp) => sp.id_space === r.id_space);
-    return s?.tipe === 'private_office' && r.status !== 'dibatalkan';
-  });
-
-  const deskIncome = deskReservations.reduce((acc, r) => acc + (r.total_harga || 0), 0);
-  const meetingIncome = meetingReservations.reduce((acc, r) => acc + (r.total_harga || 0), 0);
-  const officeIncome = officeReservations.reduce((acc, r) => acc + (r.total_harga || 0), 0);
-  const totalIncome = deskIncome + meetingIncome + officeIncome || 14850000;
+  const distribusi = (report.rincian_per_tipe_space || []).map((r) => ({
+    tipe: r.tipe,
+    label: r.label,
+    total_reservasi: r.total_booking,
+    total_pendapatan: r.total_pendapatan,
+    persentase: total > 0 ? Math.round((r.total_pendapatan / total) * 100) : 0,
+  }));
 
   return {
-    total_pendapatan: totalIncome,
-    distribusi_tipe: [
-      {
-        tipe: 'desk',
-        label: 'Personal Desk',
-        total_reservasi: deskReservations.length,
-        total_pendapatan: deskIncome,
-        persentase: Math.round((deskIncome / totalIncome) * 100) || 26,
-      },
-      {
-        tipe: 'meeting_room',
-        label: 'Meeting Room',
-        total_reservasi: meetingReservations.length,
-        total_pendapatan: meetingIncome,
-        persentase: Math.round((meetingIncome / totalIncome) * 100) || 36,
-      },
-      {
-        tipe: 'private_office',
-        label: 'Private Office',
-        total_reservasi: officeReservations.length,
-        total_pendapatan: officeIncome,
-        persentase: Math.round((officeIncome / totalIncome) * 100) || 38,
-      },
-    ],
-    tren_bulanan: INITIAL_INCOME_REPORT.tren_bulanan,
+    total_pendapatan: total,
+    realisasi_pendapatan_bersih: total,
+    distribusi_tipe: distribusi,
+    tren_bulanan: [],
   };
 }

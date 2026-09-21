@@ -253,6 +253,9 @@ export default function AdminMembersPage() {
           if (newId && finalPhoto) {
             saveUploadedImageCache('members', newId, normalizeUploadUrl(finalPhoto, 'members'));
           }
+          if (formData.username && finalPhoto) {
+            saveUploadedImageCache('members', formData.username, normalizeUploadUrl(finalPhoto, 'members'));
+          }
           showToast(`Member "${formData.nama_member}" berhasil ditambahkan.`);
           setIsModalOpen(false);
           await loadMembers();

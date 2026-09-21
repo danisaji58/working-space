@@ -9,6 +9,8 @@ import {
   ArrowUpRight,
   Clock,
   Sparkles,
+  CalendarCheck2,
+  Plus,
 } from 'lucide-react';
 import {
   getAdminMembers,
@@ -84,14 +86,24 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Link href="/admin/reservations">
-            <Button variant="primary" size="sm">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<CalendarCheck2 className="w-3.5 h-3.5" />}
+              className="font-medium shadow-sm hover:shadow-md transition-all"
+            >
               Kelola Reservasi
             </Button>
           </Link>
           <Link href="/admin/spaces">
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5 text-[#c5a880]" />}
+              className="border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-zinc-700 text-zinc-200 hover:text-white transition-all"
+            >
               Tambah Ruang
             </Button>
           </Link>
@@ -175,10 +187,10 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-400 truncate">
-                {formatIDR(monthlyReport?.total_pendapatan || 14850000)}
+                {formatIDR(monthlyReport?.total_pendapatan || 0)}
               </div>
               <div className="text-[11px] text-zinc-400 mt-1">
-                Periode September 2026
+                Total pendapatan transaksi
               </div>
             </div>
           </div>
@@ -219,38 +231,46 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60 font-mono">
-                {recentReservations.map((res) => (
-                  <tr key={res.id_reservasi} className="hover:bg-zinc-800/20">
-                    <td className="py-3 font-sans">
-                      <div className="font-semibold text-white">
-                        {res.nama_member || 'Pengunjung'}
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        #{res.id_reservasi}
-                      </div>
-                    </td>
-                    <td className="py-3 font-sans">
-                      <div className="text-zinc-200 truncate max-w-[150px]">
-                        {res.nama_space}
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        {getSpaceTypeLabel(res.tipe_space || 'desk')}
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <div className="text-zinc-200">{res.tanggal_reservasi}</div>
-                      <div className="text-[10px] text-zinc-400">
-                        {res.jam_mulai} ({res.durasi_jam} jam)
-                      </div>
-                    </td>
-                    <td className="py-3 text-white font-semibold">
-                      {formatIDR(res.total_harga)}
-                    </td>
-                    <td className="py-3 text-right">
-                      <StatusBadge status={res.status} />
+                {recentReservations.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-zinc-500 font-sans">
+                      Belum ada transaksi atau riwayat reservasi.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentReservations.map((res) => (
+                    <tr key={res.id_reservasi} className="hover:bg-zinc-800/20">
+                      <td className="py-3 font-sans">
+                        <div className="font-semibold text-white">
+                          {res.nama_member || 'Pengunjung'}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono">
+                          #{res.id_reservasi}
+                        </div>
+                      </td>
+                      <td className="py-3 font-sans">
+                        <div className="text-zinc-200 truncate max-w-[150px]">
+                          {res.nama_space}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono">
+                          {getSpaceTypeLabel(res.tipe_space || 'desk')}
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <div className="text-zinc-200">{res.tanggal_reservasi}</div>
+                        <div className="text-[10px] text-zinc-400">
+                          {res.jam_mulai} ({res.durasi_jam} jam)
+                        </div>
+                      </td>
+                      <td className="py-3 text-white font-semibold">
+                        {formatIDR(res.total_harga)}
+                      </td>
+                      <td className="py-3 text-right">
+                        <StatusBadge status={res.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -269,11 +289,13 @@ export default function AdminDashboardPage() {
 
           <div className="space-y-4 pt-2">
             {(
-              incomeReport?.distribusi_tipe || [
-                { tipe: 'desk', label: 'Personal Desk', persentase: 26, total_pendapatan: 3840000 },
-                { tipe: 'meeting_room', label: 'Meeting Room', persentase: 36, total_pendapatan: 5410000 },
-                { tipe: 'private_office', label: 'Private Office', persentase: 38, total_pendapatan: 5600000 },
-              ]
+              incomeReport?.distribusi_tipe && incomeReport.distribusi_tipe.length > 0
+                ? incomeReport.distribusi_tipe
+                : [
+                    { tipe: 'desk', label: 'Personal Desk', persentase: 0, total_pendapatan: 0 },
+                    { tipe: 'meeting_room', label: 'Meeting Room', persentase: 0, total_pendapatan: 0 },
+                    { tipe: 'private_office', label: 'Private Office', persentase: 0, total_pendapatan: 0 },
+                  ]
             ).map((item, idx) => (
               <div key={idx} className="space-y-1.5">
                 <div className="flex justify-between text-xs">
@@ -282,12 +304,13 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${idx === 0
-                      ? 'bg-[#c5a880]'
-                      : idx === 1
+                    className={`h-full rounded-full ${
+                      idx === 0
+                        ? 'bg-[#c5a880]'
+                        : idx === 1
                         ? 'bg-zinc-300'
                         : 'bg-emerald-500'
-                      }`}
+                    }`}
                     style={{ width: `${item.persentase}%` }}
                   />
                 </div>
@@ -299,9 +322,13 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="p-4 rounded-xl bg-zinc-950/70 border border-zinc-800/80 text-xs text-zinc-400 space-y-1">
-            <div className="font-semibold text-white">Target Utilisasi</div>
+            <div className="font-semibold text-white">Status Operasional</div>
             <p className="text-[11px] leading-relaxed">
-              Tingkat okupansi tertinggi dicapai oleh Private Office Suite (38%), disusul oleh Executive Meeting Room (36%).
+              {reservations.length === 0
+                ? 'Belum ada transaksi pemesanan ruang. Sistem siap menerima reservasi baru.'
+                : `Tercatat ${reservations.length} total reservasi dengan pendapatan ${formatIDR(
+                    monthlyReport?.total_pendapatan || 0
+                  )}.`}
             </p>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function SpaceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const spaceId = Number(params?.id);
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [space, setSpace] = useState<Space | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -179,6 +179,14 @@ export default function SpaceDetailPage() {
     setIsSubmitting(true);
     try {
       const targetSpaceId = space?.id_space ?? space?.id ?? spaceId;
+      const memberName =
+        (user as { nama?: string; nama_member?: string; name?: string })?.nama ||
+        (user as { nama_member?: string })?.nama_member ||
+        (user as { name?: string })?.name ||
+        user?.username ||
+        'Member';
+      const memberId = user?.id || (user as { id_member?: number })?.id_member || 101;
+
       const payload = {
         id_space: targetSpaceId,
         tanggal_reservasi: tanggal,
@@ -186,6 +194,12 @@ export default function SpaceDetailPage() {
         durasi_jam: durasiJam,
         id_diskon: appliedDiscount?.id_diskon ?? appliedDiscount?.id ?? null,
         kode_promo: appliedDiscount?.nama_diskon ?? null,
+        id_member: memberId,
+        nama_member: memberName,
+        nama_space: space?.nama_space,
+        tipe_space: space?.tipe,
+        foto_space: space?.foto,
+        harga_per_jam: space?.harga_per_jam,
       };
 
       const res = await createReservation(payload);
@@ -301,7 +315,6 @@ export default function SpaceDetailPage() {
           {/* Amenities Breakdown */}
           <div className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 space-y-4">
             <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#c5a880]" />
               <span>Fasilitas & Kelengkapan Termasuk</span>
             </h3>
 
@@ -309,12 +322,12 @@ export default function SpaceDetailPage() {
               {(space.fasilitas && space.fasilitas.length > 0
                 ? space.fasilitas
                 : [
-                    'Kursi Ergonomis',
-                    'High-Speed WiFi',
-                    'Stopkontak Meja',
-                    'Free Flow Kopi & Teh',
-                    'AC Ruangan',
-                  ]
+                  'Kursi Ergonomis',
+                  'High-Speed WiFi',
+                  'Stopkontak Meja',
+                  'Free Flow Kopi & Teh',
+                  'AC Ruangan',
+                ]
               ).map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-zinc-300">
                   <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[#c5a880] shrink-0">
@@ -441,14 +454,14 @@ export default function SpaceDetailPage() {
                   </div>
 
                   {availabilityStatus.status === 'available' && (
-                    <div className="p-2 rounded-lg bg-emerald-950/30 border border-emerald-800/50 text-[11px] text-emerald-300 flex items-center gap-2 animate-in fade-in">
+                    <div className="p-2 rounded-lg bg-emerald-950 border border-emerald-800/50 text-[11px] text-emerald-300 flex items-center gap-2 animate-in fade-in">
                       <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                       <span>{availabilityStatus.message}</span>
                     </div>
                   )}
 
                   {availabilityStatus.status === 'unavailable' && (
-                    <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-800/50 text-[11px] text-rose-300 flex items-center gap-2 animate-in fade-in">
+                    <div className="p-2 rounded-lg bg-emerald-950/30 border border-emerald-800/50 text-[11px] text-emerald-300 flex items-center gap-2 animate-in fade-in">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
                       <span>{availabilityStatus.message}</span>
                     </div>
@@ -501,13 +514,12 @@ export default function SpaceDetailPage() {
 
                   {discountStatus.message && (
                     <p
-                      className={`text-[11px] ${
-                        discountStatus.status === 'valid'
-                          ? 'text-emerald-400'
-                          : discountStatus.status === 'invalid'
+                      className={`text-[11px] ${discountStatus.status === 'valid'
+                        ? 'text-emerald-400'
+                        : discountStatus.status === 'invalid'
                           ? 'text-rose-400'
                           : 'text-zinc-400'
-                      }`}
+                        }`}
                     >
                       {discountStatus.message}
                     </p>

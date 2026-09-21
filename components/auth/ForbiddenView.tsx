@@ -87,14 +87,6 @@ export function ForbiddenView({
 
         {/* Text Content */}
         <div className="space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wider uppercase border border-zinc-800 bg-zinc-900/90 text-zinc-400">
-            {isAdmin ? (
-              <span className="text-rose-400">403 FORBIDDEN • ADMIN ONLY</span>
-            ) : (
-              <span className="text-[#c5a880]">403 FORBIDDEN • MEMBER ONLY</span>
-            )}
-          </div>
-
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white">
             {displayTitle}
           </h1>
@@ -223,17 +215,6 @@ export function ForbiddenView({
               </Link>
             </>
           )}
-        </div>
-
-        {/* Back Link */}
-        <div className="pt-2">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs font-mono text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Kembali ke Halaman Utama</span>
-          </Link>
         </div>
       </div>
     </div>

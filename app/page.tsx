@@ -179,11 +179,10 @@ export default function LandingPage() {
                 <button
                   key={tab.id}
                   onClick={() => setSelectedType(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    selectedType === tab.id
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedType === tab.id
                       ? 'bg-zinc-100 text-zinc-950 font-semibold'
                       : 'text-zinc-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -431,13 +430,10 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="card-luxury p-8 sm:p-12 rounded-3xl relative overflow-hidden border border-zinc-800/80">
             <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-80 h-80 bg-[#c5a880]/15 rounded-full blur-3xl pointer-events-none" />
-            
+
             <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
               <div className="space-y-3 text-center md:text-left max-w-lg">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#c5a880]/20 text-[#dfcbb5] text-xs font-mono">
-                  <Sparkles className="w-3.5 h-3.5 text-[#c5a880]" />
-                  <span>Promo Member Baru</span>
-                </div>
+
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                   Nikmati Diskon 20% untuk Reservasi Pertama Anda
                 </h2>
@@ -497,9 +493,8 @@ export default function LandingPage() {
                   >
                     <span>{faq.q}</span>
                     <ChevronDown
-                      className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-200 ${
-                        isOpen ? 'rotate-180 text-[#c5a880]' : ''
-                      }`}
+                      className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#c5a880]' : ''
+                        }`}
                     />
                   </button>
                   {isOpen && (
@@ -599,11 +594,6 @@ export default function LandingPage() {
 
           <div className="pt-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 font-mono">
             <div>© {new Date().getFullYear()} Smart Space Coworking. Hak Cipta Dilindungi.</div>
-            <div className="flex items-center gap-6">
-              <span>Keamanan Terenkripsi</span>
-              <span>•</span>
-              <span>Instant QR Check-In</span>
-            </div>
           </div>
         </div>
       </footer>

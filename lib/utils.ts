@@ -147,6 +147,7 @@ export function saveUploadedImageCache(type: 'spaces' | 'members', id: number | 
     const stored = localStorage.getItem(key);
     const parsed = stored ? JSON.parse(stored) : {};
     parsed[String(id)] = dataUrl;
+    parsed[String(id).toLowerCase()] = dataUrl;
     localStorage.setItem(key, JSON.stringify(parsed));
   } catch {
     // quota exceeded or SSR
@@ -160,7 +161,7 @@ export function getUploadedImageCache(type: 'spaces' | 'members', id: number | s
     const stored = localStorage.getItem(key);
     if (!stored) return null;
     const parsed = JSON.parse(stored);
-    return parsed[String(id)] || null;
+    return parsed[String(id)] || parsed[String(id).toLowerCase()] || null;
   } catch {
     return null;
   }
@@ -224,13 +225,17 @@ export function resolveSpaceImage(
 }
 
 export function resolveMemberImage(
-  member: { foto?: string; foto_url?: string; id?: number; id_member?: number } | null | undefined
+  member: { foto?: string; foto_url?: string; id?: number; id_member?: number; username?: string } | null | undefined
 ): string {
   if (!member) return FALLBACK_MEMBER_AVATARS[0];
 
   const targetId = member.id_member ?? member.id;
   if (targetId) {
     const cached = getUploadedImageCache('members', targetId);
+    if (cached) return cached;
+  }
+  if (member.username) {
+    const cached = getUploadedImageCache('members', member.username);
     if (cached) return cached;
   }
 

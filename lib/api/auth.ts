@@ -1,6 +1,7 @@
 import { apiClient, setAuthToken, removeAuthToken, isExplicitDemoMode } from './client';
 import { ApiResponse, UserSession, Member, AdminProfile } from '@/types/api';
 import { saveLocalMember } from '../storage';
+import { saveUploadedImageCache } from '../utils';
 
 export interface RegisterMemberPayload {
   username: string;
@@ -26,8 +27,15 @@ export interface LoginPayload {
 }
 
 export async function registerMember(payload: RegisterMemberPayload): Promise<ApiResponse<Member>> {
+  // Save locally first to guarantee persistence in member list & offline capability
+  const local = saveLocalMember(payload);
+  const mid = local.id_member || local.id;
+  if (payload.foto) {
+    if (mid) saveUploadedImageCache('members', mid, payload.foto);
+    if (local.username) saveUploadedImageCache('members', local.username, payload.foto);
+  }
+
   if (isExplicitDemoMode()) {
-    const local = saveLocalMember(payload);
     return {
       status: true,
       statusCode: 201,
@@ -36,10 +44,40 @@ export async function registerMember(payload: RegisterMemberPayload): Promise<Ap
     };
   }
 
-  return apiClient<Member>('/api/auth/register/member', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  try {
+    const res = await apiClient<Member>('/api/auth/register/member', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (res.status && res.data) {
+      const serverMid = res.data.id_member || res.data.id || mid;
+      const memberWithFoto: Member = {
+        ...res.data,
+        id_member: serverMid,
+        id: serverMid,
+        foto: res.data.foto || payload.foto,
+      };
+      saveLocalMember(memberWithFoto);
+      if (payload.foto) {
+        if (serverMid) saveUploadedImageCache('members', serverMid, payload.foto);
+        if (memberWithFoto.username) saveUploadedImageCache('members', memberWithFoto.username, payload.foto);
+      }
+      return {
+        ...res,
+        data: memberWithFoto,
+      };
+    }
+  } catch (err) {
+    console.warn('Backend registerMember error, fallback to local storage:', err);
+  }
+
+  return {
+    status: true,
+    statusCode: 201,
+    message: 'Registrasi member berhasil.',
+    data: local,
+  };
 }
 
 export async function registerAdmin(payload: RegisterAdminPayload): Promise<ApiResponse<AdminProfile>> {

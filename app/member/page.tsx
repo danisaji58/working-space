@@ -106,9 +106,6 @@ export default function MemberDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-900">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-mono text-[#c5a880] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Dashboard Anggota</span>
-            <span>•</span>
             <span className="text-zinc-400 font-normal">{todayFormatted}</span>
           </div>
 
@@ -150,7 +147,6 @@ export default function MemberDashboardPage() {
             <span className="text-xs text-zinc-400">sesi</span>
           </div>
           <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono">
-            <span className={`w-2 h-2 rounded-full ${activeReservations.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
             <span>{activeReservations.length > 0 ? 'Siap digunakan' : 'Tidak ada jadwal hari ini'}</span>
           </div>
         </div>
