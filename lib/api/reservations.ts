@@ -12,6 +12,7 @@ import {
   createLocalReservation,
   updateLocalReservationStatus,
   getLocalETicket,
+  getDeletedReservationIds,
 } from '../storage';
 
 export type CreateReservationPayload = CreateReservasiDto;
@@ -117,20 +118,23 @@ export async function getMyReservations(): Promise<ApiResponse<Reservation[]>> {
       const serverList = res.data.map(normalizeReservation);
       const seenIds = new Set(serverList.map((r) => Number(r.id_reservasi || r.id)));
       const uniqueLocal = localActive.filter((r) => !seenIds.has(Number(r.id_reservasi || r.id)));
+      const deletedIds = new Set(getDeletedReservationIds().map(Number));
+      const filtered = [...uniqueLocal, ...serverList].filter((r) => !deletedIds.has(Number(r.id_reservasi || r.id)));
       return {
         ...res,
-        data: [...uniqueLocal, ...serverList],
+        data: filtered,
       };
     }
   } catch {
     // fallback
   }
 
+  const deletedIds = new Set(getDeletedReservationIds().map(Number));
   return {
     status: true,
     statusCode: 200,
     message: 'Berhasil memproses permintaan',
-    data: localActive,
+    data: localActive.filter((r) => !deletedIds.has(Number(r.id_reservasi || r.id))),
   };
 }
 
@@ -194,7 +198,8 @@ export async function getMyHistory(
 
       const seenIds = new Set(serverItems.map((r) => Number(r.id_reservasi || r.id)));
       const uniqueLocal = localAll.filter((r) => !seenIds.has(Number(r.id_reservasi || r.id)));
-      const mergedItems = [...uniqueLocal, ...serverItems];
+      const deletedIds = new Set(getDeletedReservationIds().map(Number));
+      const mergedItems = [...uniqueLocal, ...serverItems].filter((r) => !deletedIds.has(Number(r.id_reservasi || r.id)));
       const totalPengeluaran = mergedItems.reduce(
         (sum, item) => sum + (item.total_bayar || item.total_harga || 0),
         0

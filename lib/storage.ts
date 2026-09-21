@@ -27,6 +27,7 @@ const KEYS = {
   ADMIN_PROFILE: 'ssb_admin_profile_v2',
   MONTHLY_REPORT: 'ssb_monthly_report_v2',
   INCOME_REPORT: 'ssb_income_report_v2',
+  DELETED_RESERVATIONS: 'ssb_deleted_reservations_v2',
 };
 
 function getItem<T>(key: string, fallback: T): T {
@@ -292,6 +293,28 @@ export function updateLocalReservationStatus(
   reservations[index] = updated;
   setItem(KEYS.RESERVATIONS, reservations);
   return updated;
+}
+
+export function getDeletedReservationIds(): number[] {
+  return getItem<number[]>(KEYS.DELETED_RESERVATIONS, []);
+}
+
+export function addDeletedReservationId(id: number): void {
+  const ids = getDeletedReservationIds();
+  const numId = Number(id);
+  if (!ids.includes(numId)) {
+    ids.push(numId);
+    setItem(KEYS.DELETED_RESERVATIONS, ids);
+  }
+}
+
+export function deleteLocalReservation(id: number): boolean {
+  const numId = Number(id);
+  const reservations = getLocalReservations();
+  const filtered = reservations.filter((r) => Number(r.id_reservasi ?? r.id) !== numId);
+  setItem(KEYS.RESERVATIONS, filtered);
+  addDeletedReservationId(numId);
+  return true;
 }
 
 export function getLocalETicket(id: number): ETicketData | null {

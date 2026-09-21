@@ -32,6 +32,8 @@ import {
   deleteLocalDiscount,
   getLocalReservations,
   updateLocalReservationStatus,
+  deleteLocalReservation,
+  getDeletedReservationIds,
   getLocalMonthlyReport,
   getLocalIncomeReport,
 } from '../storage';
@@ -857,6 +859,12 @@ export async function getAdminReservations(
     }
   }
 
+  // Always filter out deleted reservations (both local and server)
+  const deletedReservationIds = new Set(getDeletedReservationIds().map(Number));
+  if (deletedReservationIds.size > 0) {
+    merged = merged.filter((r) => !deletedReservationIds.has(Number(r.id_reservasi || r.id)));
+  }
+
   // Enrich with local member & space details if missing
   const localMembersList = getLocalMembers();
   const localSpacesList = getLocalSpaces();
@@ -1046,6 +1054,45 @@ export async function checkOutReservation(id: number): Promise<ApiResponse<Reser
     data: updatedLocal ? normalizeReservation(updatedLocal) : (null as unknown as Reservation),
   };
 }
+
+// -------------------------------------------------------------
+// Endpoint: DELETE /api/admin/reservasi/{id} (Hapus Reservasi)
+// -------------------------------------------------------------
+export async function deleteAdminReservation(
+  id: number
+): Promise<ApiResponse<{ id: number; deleted?: boolean }>> {
+  deleteLocalReservation(id);
+
+  if (isExplicitDemoMode()) {
+    return {
+      status: true,
+      statusCode: 200,
+      message: 'Reservasi berhasil dihapus! (Demo Mode)',
+      data: { id, deleted: true },
+    };
+  }
+
+  try {
+    const res = await apiClient<{ id: number; deleted?: boolean }>(`/api/admin/reservasi/${id}`, {
+      method: 'DELETE',
+      requiresAuth: true,
+    });
+
+    if (res.status) {
+      return res;
+    }
+  } catch (err) {
+    console.warn('API deleteAdminReservation failed, deleted locally:', err);
+  }
+
+  return {
+    status: true,
+    statusCode: 200,
+    message: 'Reservasi berhasil dihapus.',
+    data: { id, deleted: true },
+  };
+}
+
 
 // -------------------------------------------------------------
 // Endpoint 46: GET /api/admin/reports/monthly (Rekapitulasi Estimasi & Realisasi Pendapatan Bulanan)

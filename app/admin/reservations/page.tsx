@@ -6,6 +6,7 @@ import {
   LogIn,
   LogOut,
   Edit2,
+  Trash2,
   RefreshCw,
   Filter,
   Building2,
@@ -20,6 +21,7 @@ import {
   updateReservationStatus,
   checkInReservation,
   checkOutReservation,
+  deleteAdminReservation,
   getAdminSpaces,
 } from '@/lib/api/admin';
 import { Reservation, ReservationStatus, Space } from '@/types/api';
@@ -54,6 +56,10 @@ export default function AdminReservationsPage() {
   const [selectedNewStatus, setSelectedNewStatus] = useState<ReservationStatus>('disetujui');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Modal Delete Target
+  const [deleteTarget, setDeleteTarget] = useState<Reservation | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const loadReservations = useCallback(async () => {
     setIsLoading(true);
@@ -199,6 +205,33 @@ export default function AdminReservationsPage() {
       }
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  // Quick Action: Delete Reservation
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    const resId = deleteTarget.id_reservasi ?? deleteTarget.id ?? 0;
+    setIsDeleting(true);
+    try {
+      // 1. Optimistically remove from state immediately
+      setReservations((prev) => prev.filter((r) => Number(r.id_reservasi ?? r.id) !== Number(resId)));
+      setDeleteTarget(null);
+
+      // 2. Perform delete API call & persistent local storage deletion
+      const res = await deleteAdminReservation(resId);
+      if (res.status) {
+        showToast(`Reservasi #${resId} berhasil dihapus.`);
+        await loadReservations();
+      } else {
+        showToast(res.message || 'Gagal menghapus reservasi.');
+        await loadReservations();
+      }
+    } catch {
+      showToast('Terjadi kesalahan saat menghapus reservasi.');
+      await loadReservations();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -525,6 +558,17 @@ export default function AdminReservationsPage() {
                           >
                             Ubah Status
                           </Button>
+
+                          {/* Delete button */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteTarget(res)}
+                            className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/20"
+                            leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                          >
+                            Hapus
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -593,6 +637,36 @@ export default function AdminReservationsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Confirm Delete */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Hapus Data Reservasi?"
+        description={`Apakah Anda yakin ingin menghapus reservasi #${deleteTarget?.id_reservasi ?? deleteTarget?.id} atas nama "${deleteTarget?.nama_member || deleteTarget?.member?.nama_member || 'Pengunjung'}"? Tindakan ini tidak dapat dibatalkan.`}
+        maxWidth="sm"
+      >
+        <div className="flex items-center justify-end gap-2 pt-4 border-t border-zinc-800">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setDeleteTarget(null)}
+            disabled={isDeleting}
+          >
+            Batal
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            isLoading={isDeleting}
+            onClick={handleDeleteConfirm}
+          >
+            Ya, Hapus Reservasi
+          </Button>
+        </div>
       </Modal>
     </div>
   );
